@@ -1,269 +1,244 @@
 # ChainBreak ⚡
 
-> **Runtime Security Invariant Engine for Autonomous Agent Trajectories**  
-> *Stopping multi-step AI agent data exfiltration through deterministic trajectory-level security invariants.*
+> **Deterministic Runtime Invariant Engine for Autonomous Agent Trajectories**  
+> *Halting multi-step AI agent data exfiltration through stateful causal lineage tracking and mathematical boundary contracts.*
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF.svg)](https://vitejs.dev/)
+[![Tests](https://img.shields.io/badge/Tests-44%2F44%20Passed-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
-## The Problem: Trajectory Attacks Evade Point-in-Time Defenses
-
-Modern AI agent security systems evaluate tool calls individually at the perimeter:
-- Is reading public customer data allowed? **Yes.**
-- Is loading internal CRM context allowed? **Yes.**
-- Is generating an executive summary allowed? **Yes.**
-- Is sending a summary to an external webhook allowed? **Yes.**
-
-Every single action is individually benign and passes standard permission checks. However, when chained together in an autonomous agent trajectory, the **accumulated state** results in unauthorized context exfiltration:
-
-```
-[Step 1] read_public_data       ──▶ ALLOW (benign)
-               │
-[Step 2] read_customer_context  ──▶ ALLOW (benign)
-               │
-[Step 3] generate_content       ──▶ ALLOW (benign)
-               │
-[Step 4] send_external_summary  ──▶ CHAINBREAK INTERCEPTION ──▶ BLOCK
-                                    [TRAJECTORY_ESCALATION]
-                                    Zero network egress.
-```
-
-**ChainBreak solves this.** It treats an agent's execution not as isolated tool calls, but as a stateful, evolving causal trajectory.
-
-### Architectural Comparison: Single-Action Firewalls vs. ChainBreak
-
-| Dimension | Perimeter Firewalls / Guardrails AI | ChainBreak Causal Invariant Engine |
-|---|---|---|
-| **Inspection Scope** | Isolated, point-in-time tool calls | Stateful, cumulative trajectory lineage graph |
-| **State Memory** | Zero cross-step awareness | Causal antecedents tracked (`triggered_by: [1, 2, 3]`) |
-| **Multi-Step Attack Detection** | **0%** (Permits individually benign steps) | **100%** (Halts at Step 04 before external egress) |
-| **Enforcement Guarantees** | Probabilistic LLM prompts / heuristics | Pure Python mathematical invariants in code |
-| **Runtime Latency** | 1.5s – 3.0s per step (LLM-as-a-judge) | **< 0.15ms** mean invariant evaluation latency |
+## 1. Product Overview
+**ChainBreak** is a lightweight, deterministic runtime security engine designed for autonomous AI agents. Unlike traditional AI guardrails that inspect actions in isolation at the network perimeter, ChainBreak constructs an evolving causal lineage graph across the entire agent lifecycle, enforcing mathematical invariants in code before network sockets open.
 
 ---
 
-## 6-Line Drop-In Integration (Universal Agent Middleware)
+## 2. The Problem
+Modern perimeter guardrails evaluate tool invocations in isolation:
+* **Step 1**: `read_public_data` ──▶ **ALLOW** (Harmless public read)
+* **Step 2**: `read_customer_context` ──▶ **ALLOW** (Authorized internal CRM query)
+* **Step 3**: `generate_content` ──▶ **ALLOW** (Local synthesis)
+* **Step 4**: `send_external_summary` ──▶ **ALLOW** (Legitimate communication tool)
 
-ChainBreak is engineered as a lightweight, drop-in runtime interceptor for modern autonomous agent stacks (LangChain, CrewAI, AutoGen, or OpenAI Swarm):
+Every single action passes standard RBAC and perimeter firewall checks. However, when chained by an autonomous agent, the **accumulated state** results in confidential customer PII being exfiltrated to an external webhook. Perimeter firewalls have **zero cross-step memory** and are fundamentally blind to multi-step trajectory escalation.
 
+---
+
+## 3. The Solution
+ChainBreak treats an agent's execution not as isolated calls, but as an evolving causal trajectory:
+1. **Lineage Tracking**: Tracks causal antecedents (`triggered_by: [1, 2, 3]`), sensitivity, and target destinations across steps.
+2. **Deterministic Enforcement**: Replaces slow, probabilistic LLM prompts with pure Python mathematical invariant contracts.
+3. **Zero-Egress Interception**: Execution is severed at the exact step of escalation, dropping payloads before any bytes reach the socket.
+
+---
+
+## 4. Key Features
+* **Dual-Track Counterfactual Proof**: Runs simultaneous side-by-side executions—**Baseline** (unprotected breach) vs. **Protected** (ChainBreak severance)—verifying the exact point of divergence.
+* **Sub-Millisecond Overhead**: Evaluates pure Python invariant checks in `< 0.2ms` mean latency.
+* **Fail-Closed Security Posture**: Unknown tools, corrupted schemas, or model timeouts strictly resolve to `HOLD` (never failing open).
+* **Automated 20-Scenario Benchmark Suite**: Built-in verification testing across 6 Attacks, 5 Safe tasks, 4 Near-Miss workflows, 3 Failure modes, and 2 Unknown tools (100% attack interception, 0% false blocks).
+* **Editorial Security Cockpit**: React-based obsidian interface providing real-time trajectory streaming, step parameter inspection, and counterfactual proof graphs.
+* **Operational AI Telemetry Drawer**: Live explanations of triggered invariants, causal antecedents, and remediation impact.
+
+---
+
+## 5. Architecture
+
+```
+                  ┌─────────────────────────────────────────┐
+                  │      Autonomous AI Agent Trajectory     │
+                  └────────────────────┬────────────────────┘
+                                       │ Tool Dispatch Loop
+                                       ▼
+                  ┌─────────────────────────────────────────┐
+                  │        @agent.on_tool_call Hook         │
+                  └────────────────────┬────────────────────┘
+                                       │
+                                       ▼
+                  ┌─────────────────────────────────────────┐
+                  │    LLM Semantic Metadata Extractor      │
+                  │ (OpenRouter / Liquid-LFM or Local Cache)│
+                  │  Extracts: Intent, Sensitivity, Dest    │
+                  └────────────────────┬────────────────────┘
+                                       │ Structured Metadata
+                                       ▼
+                  ┌─────────────────────────────────────────┐
+                  │      Cumulative State Manager           │
+                  │ (Tracks Causal DAG, Antecedents, Memory)│
+                  └────────────────────┬────────────────────┘
+                                       │ Evolving State Vector
+                                       ▼
+                  ┌─────────────────────────────────────────┐
+                  │    Deterministic Invariant Engine       │
+                  │   (Pure Python Mathematical Contracts)  │
+                  └────────────────────┬────────────────────┘
+                                       │
+                    ┌──────────────────┴──────────────────┐
+                    │                                     │
+             [ALLOW]│                                     │[BLOCK / HOLD]
+                    ▼                                     ▼
+        ┌───────────────────────┐             ┌───────────────────────┐
+        │  Dispatch to Sandbox  │             │ Sever Socket Adapter  │
+        │   & Record Telemetry  │             │ Zero Bytes Exfiltrated│
+        └───────────────────────┘             └───────────────────────┘
+```
+
+---
+
+## 6. Tech Stack
+* **Backend**: Python 3.12, FastAPI, Uvicorn, Pydantic v2, HTTPX
+* **Frontend**: React 18, Vite 5, Tailwind CSS, Lucide React
+* **Testing**: Pytest, Pytest-Asyncio, HTTPX TestClient (44 automated tests)
+* **Cloud & Containerization**: Docker, Render Blueprint (`render.yaml`), Vercel (`vercel.json`)
+
+---
+
+## 7. AI Architecture
+ChainBreak implements a strict separation of concerns between semantic interpretation and deterministic enforcement:
+* **Semantic Classifier** (`backend/engine/classifier.py`): Converts raw tool names and arguments into structured security tags (`data_sensitivity`, `destination`, `data_classes`, `contains_secret`) via OpenRouter (`liquid/lfm-2.5-2.6b:free`).
+* **Zero Decision Authority for LLMs**: The model **never** decides whether to allow or block. It only extracts structured tags.
+* **Deterministic Fallback & Local Cache**: If external LLM calls fail, time out, or hit rate limits (429), the classifier automatically engages `_deterministic_fallback`, maintaining 100% uptime with zero external dependencies.
+
+---
+
+## 8. Database
+* **In-Memory Causal State**: ChainBreak intentionally operates with **zero external database dependencies**.
+* **Design Rationale**: Trajectories are scoped to live agent execution lifecycles. Eliminating database I/O guarantees `< 0.2ms` evaluation latency and ensures sensitive or exfiltrated payloads are never persisted to disk.
+
+---
+
+## 9. API & Integrations
+
+### Core REST API Endpoints (`backend/main.py`)
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/api/health` | Engine liveness and model provider connectivity |
+| `GET` | `/api/scenarios` | Catalog of all 20 benchmark test scenarios |
+| `GET` | `/api/scenarios/{id}` | Step-by-step definition and expected outcome of a scenario |
+| `POST` | `/api/run` | Execute a single run in `PROTECTED` or `BASELINE` mode |
+| `POST` | `/api/run-counterfactual` | Dual-track simultaneous execution returning divergence proof |
+| `POST` | `/api/benchmark` | Evaluates all 20 scenarios, computing aggregate accuracy metrics |
+
+### 6-Line Drop-In SDK Integration
 ```python
 from chainbreak import ChainBreakRuntime, InvariantBreach
 
 runtime = ChainBreakRuntime(policy="strict")
 
-# Universal interceptor hook wrapping agent tool dispatch loops
+# Universal interceptor wrapping agent tool dispatch loops
 @agent.on_tool_call
 async def intercept(tool_call, context):
     decision = await runtime.evaluate_trajectory(tool_call, context)
     if decision.status == "BLOCK":
-        # Trajectory severed immediately before socket transmission: zero egress
+        # Trajectory severed before socket transmission: zero network egress
         raise InvariantBreach(decision.violation, lineage=decision.antecedents)
     return await tool_call.execute()
 ```
 
 ---
 
-## Core Architecture
-
-ChainBreak enforces a strict separation of concerns between semantic interpretation and deterministic security enforcement:
-
-```
-                  ┌─────────────────────────────────────┐
-                  │    Autonomous AI Agent Execution    │
-                  └──────────────────┬──────────────────┘
-                                     │ Tool Call Interception
-                                     ▼
-                  ┌─────────────────────────────────────┐
-                  │      LLM Semantic Classifier       │
-                  │   (Extracts intent, sensitivity,    │
-                  │    destinations, data classes)      │
-                  └──────────────────┬──────────────────┘
-                                     │ Structured Attributes
-                                     ▼
-                  ┌─────────────────────────────────────┐
-                  │     Cumulative State Manager        │
-                  │   (Tracks lineage, source steps,    │
-                  │    privilege level, destinations)   │
-                  └──────────────────┬──────────────────┘
-                                     │ Evolving Chain State
-                                     ▼
-                  ┌─────────────────────────────────────┐
-                  │   Deterministic Invariant Engine    │
-                  │  (Pure Python, zero-hallucination,  │
-                  │   fail-closed security contracts)   │
-                  └──────────────────┬──────────────────┘
-                                     │
-                    ┌────────────────┴────────────────┐
-                    │                                 │
-             [ALLOW] │                                 │ [BLOCK / HOLD]
-                    ▼                                 ▼
-         ┌────────────────────┐            ┌────────────────────┐
-         │ Execute in Sandbox │            │ Drop Tool Call     │
-         │   & Log Telemetry  │            │ Halt Trajectory    │
-         └────────────────────┘            │ Zero Network Egress│
-                                           └────────────────────┘
-```
-
-### Deterministic Invariants
-1. **`SENSITIVE_DATA_BOUNDARY`**: Prevents egress of PII or internal company data to external unauthenticated destinations.
-2. **`SECRET_BOUNDARY`**: Prohibits transmitting API keys, cryptographic tokens, or secrets outside trusted boundaries.
-3. **`PRIVILEGE_BOUNDARY`**: Blocks sensitive tools when executed with insufficient privileges.
-4. **`TRAJECTORY_ESCALATION`**: Detects accumulated context exfiltration where harmless individual steps combine into unauthorized data exfiltration.
-
-### Fail-Closed Security (SR4 / AC6)
-- Uncertainty or LLM classifier timeout **never defaults to ALLOW**.
-- Unregistered or unknown tools **immediately HOLD**.
-- When an invariant fires, execution is halted instantly before invoking underlying API/socket adapters.
-
----
-
-## 20-Scenario Benchmark Suite
-
-ChainBreak includes an automated evaluation benchmark across 20 rigorous test scenarios:
-
-| Category | Count | Expected Behavior | Description |
-|---|:---:|:---:|---|
-| **Attacks** | 6 | `BLOCK` | Multi-step exfiltration, trajectory escalation, secret theft |
-| **Safe** | 5 | `ALLOW` | Legitimate analytics, support queries, documentation generation |
-| **Near-Miss** | 4 | `ALLOW` | High-sensitivity data kept internal, benign multi-step workflows |
-| **Failure Modes** | 3 | `HOLD` | Simulated LLM classifier failure, schema corruption, timeout |
-| **Unknown Tools** | 2 | `HOLD` | Synthetic unapproved tools attempting system calls |
-
-### Verification Metrics
-- **Detection Rate**: `100.0%` (All attacks intercepted)
-- **Prevention Rate**: `100.0%` (Zero bytes leaked on block)
-- **False Block Rate**: `0.0%` (Zero legitimate safe actions blocked)
-- **Evaluation Latency**: `< 1ms` mean invariant enforcement overhead
-
----
-
-## Editorial Security Cockpit (Frontend)
-
-Built with React 18, Vite, and designed following the **Hyperstudio Obsidian Blueprint** (`DESIGN (3).md`):
-- **Deep Matte Canvas**: Obsidian (`#101010`) background with Carbon (`#080808`) depth surfaces.
-- **Hairline Geometry**: 1px Graphite rules (`#212121`) providing flat, architectural structure without drop shadows.
-- **Display Typography**: Inter 400 with negative display letter tracking (`-0.69px` at 63px) and JetBrains Mono for metadata and telemetry.
-- **Dual-Track Counterfactual Proof**: Visual side-by-side execution comparison (Unprotected Baseline vs Protected ChainBreak) with step-by-step lineage tracking.
-- **Live Invariant Telemetry**: Real-time cumulative state monitoring and antecedent lineage highlighting (`triggered_by: [1, 2, 3]`).
-
----
-
-## Project Structure
-
-```
-ChainBreak/
-├── backend/
-│   ├── engine/
-│   │   ├── classifier.py      # OpenRouter LLM semantic extractor + deterministic fallback
-│   │   ├── invariants.py      # 4 deterministic security invariants
-│   │   ├── models.py          # Typed Pydantic data models & contracts
-│   │   ├── runner.py          # Interceptor pipeline & counterfactual dual runner
-│   │   ├── sandbox.py         # Synthetic tool registry & mock sandbox environment
-│   │   └── state_manager.py   # Stateful lineage & causal graph tracking
-│   ├── tests/                 # 44 automated unit & integration tests (pytest, 100% passing)
-│   ├── main.py                # FastAPI server (5 REST endpoints)
-│   ├── scenarios.py           # 20 benchmark scenarios
-│   └── requirements.txt       # Python dependencies
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── ActionCard.jsx          # Individual step card with semantics & lineage
-│   │   │   ├── BenchmarkModal.jsx      # 20-scenario evaluation report dialog
-│   │   │   ├── CounterfactualProof.jsx # Dual-track comparative matrix
-│   │   │   ├── RunTimeline.jsx         # Live telemetry stream & cumulative state bar
-│   │   │   ├── ScenarioSelector.jsx    # 20-scenario deck categorized by risk profile
-│   │   │   └── ViolationPanel.jsx      # Invariant breach inspector & causal chain
-│   │   ├── App.jsx            # Cockpit shell & state orchestration
-│   │   ├── index.css          # Design system tokens & styling
-│   │   └── main.jsx           # React DOM root
-│   ├── index.html             # HTML entry point with Inter & JetBrains Mono fonts
-│   ├── package.json           # Frontend dependencies (React 18, Lucide)
-│   └── vite.config.js         # Port 5173 with /api reverse proxy to 8000
-├── .planning/                 # Project planning, roadmap, and state tracking
-├── .env.example               # Environment template
-├── .gitignore                 # Strict ignore rules (zero credentials/cache committed)
-└── README.md
-```
-
----
-
-## Quickstart Guide
+## 10. Local Setup
 
 ### Prerequisites
-- Python 3.10+
+- Python 3.10+ (Python 3.12 recommended)
 - Node.js 18+ and npm
 
 ### 1. Backend Setup
-
 ```bash
-# Clone the repository
 git clone https://github.com/hashmessi/ChainBreak.git
 cd ChainBreak
 
-# Install Python dependencies
-pip install -r requirements.txt
-
-# (Optional) Configure OpenRouter API key for live LLM classification
-# If omitted, ChainBreak uses its built-in deterministic classifier fallback
-cp .env.example .env
-```
-
-Start the FastAPI server:
-```bash
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
-```
-Backend will be live at `http://127.0.0.1:8000` (API documentation at `/docs`).
-
-### 2. Frontend Setup
-
-In a separate terminal:
-```bash
-cd frontend
+# Setup virtual environment
+python -m venv .venv
+# On Windows:
+.venv\Scripts\activate
+# On macOS/Linux:
+source .venv/bin/activate
 
 # Install dependencies
-npm install
+pip install -r requirements.txt
 
-# Start Vite development server
+# Run FastAPI backend
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
+```
+API server runs at `http://127.0.0.1:8000` (Interactive docs available at `/docs`).
+
+### 2. Frontend Setup
+```bash
+cd frontend
+npm install
 npm run dev
 ```
-Open `http://localhost:5173/` in your browser to access the ChainBreak Security Cockpit.
+Access the cockpit interface at `http://localhost:5173/`.
 
-### 3. Run Automated Backend Tests
+---
+
+## 11. Environment Variables
+
+Create a `.env` file in the project root (see `.env.example`):
+```bash
+# Optional: OpenRouter API Key for live LLM semantic classification
+# (If omitted, engine runs reliably using local deterministic fallback)
+OPENROUTER_API_KEY=your_openrouter_key_here
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=liquid/lfm-2.5-2.6b:free
+
+# Server Configuration
+ENVIRONMENT=development
+PORT=8000
+LOG_LEVEL=INFO
+```
+
+---
+
+## 12. Deployment
+
+* **Live Demo**: Hosted on Render (`https://chainbreak.onrender.com`).
+* **Render Unified Service** (`render.yaml`): Builds the React frontend and packages it directly with the FastAPI backend into a single service:
+  ```yaml
+  buildCommand: "npm --prefix frontend install && npm --prefix frontend run build && pip install -r requirements.txt"
+  startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+  ```
+* **Docker Deployment**:
+  ```bash
+  docker compose up --build
+  ```
+
+---
+
+## 13. Testing
+ChainBreak includes a comprehensive automated test suite verifying invariants, counterfactual divergence, and fail-closed handling:
 
 ```bash
-python -m pytest backend/ -v
+python -m pytest backend/tests/ -v
 ```
-Runs 44 comprehensive unit and integration tests verifying invariants, counterfactual execution, session isolation, and fail-closed handling in under 1 second (100% passing).
+
+* **Test Breakdown (44/44 Passed in < 0.7s)**:
+  - `test_api.py` (11 tests): Endpoints, error handling, and counterfactual runners
+  - `test_invariants.py` (7 tests): Mathematical boundary contracts and fail-closed resolution
+  - `test_sandbox.py` (10 tests): Isolated tool execution and unknown tool containment
+  - `test_scenarios.py` (15 tests): 20-scenario benchmark verification, sequence ablation, and session isolation
+  - `test_live_openrouter.py` (1 test): External LLM classifier integration check
 
 ---
 
-## Cloud Deployment (Render & Vercel)
-
-ChainBreak includes ready-to-deploy configurations for **Render**, **Vercel**, and **Docker**:
-
-- **Render (Recommended)**: Single-service unified deployment serving both the compiled React frontend and FastAPI backend on a single domain with zero CORS setup via [render.yaml](file:///c:/Users/Hashvanth/chain-break-dev/ChainBreak/render.yaml).
-- **Vercel**: Edge frontend deployment with automated API rewrites via [vercel.json](file:///c:/Users/Hashvanth/chain-break-dev/ChainBreak/vercel.json).
-- **Docker**: Multi-stage production container via [Dockerfile](file:///c:/Users/Hashvanth/chain-break-dev/ChainBreak/Dockerfile) and [docker-compose.yml](file:///c:/Users/Hashvanth/chain-break-dev/ChainBreak/docker-compose.yml).
-
-For complete step-by-step instructions, see the [Cloud Deployment Guide (CLOUD_DEPLOYMENT.md)](file:///c:/Users/Hashvanth/chain-break-dev/ChainBreak/CLOUD_DEPLOYMENT.md).
+## 14. Known Limitations
+1. **In-Memory Trajectory State**: Trajectory graphs are currently maintained in memory per runtime instance. Multi-agent swarms operating across distributed nodes require external state persistence (e.g., Redis) for cross-node causal synchronization.
+2. **Synchronous Tool Dispatch**: Tool calls are evaluated in sequential sequence order; concurrent tool calls dispatched in the same agent turn are evaluated sequentially by sequence index.
+3. **Simulated Sandbox Tools**: Benchmark scenarios execute within a controlled internal mock tool sandbox for deterministic, reproducible evaluation rather than firing live unauthenticated webhooks.
 
 ---
 
-## REST API Endpoints
-
-- `GET  /api/health` — Engine health, environment, uptime, and database telemetry
-- `GET  /api/scenarios` — Catalog of all 20 benchmark scenarios
-- `POST /api/run` — Execute single scenario in `BASELINE` or `PROTECTED` mode
-- `POST /api/counterfactual/{id}` — Execute side-by-side dual-track run and return comparative proof
-- `POST /api/evaluate` — Run full 20-scenario benchmark suite and calculate detection metrics
+## 15. Future Improvements
+1. **Distributed Causal State Sync**: Implementing Redis / Dragonfly backends for cross-instance state synchronization in multi-agent swarms (CrewAI / AutoGen).
+2. **Kernel-Level Socket Termination (eBPF)**: Intercepting and terminating unauthorized outgoing network packets directly at the Linux kernel level for defense-in-depth.
+3. **Automated Policy Generation**: Automatically parsing OpenAPI schemas and corporate RBAC configurations to synthesize custom trajectory invariants.
 
 ---
 
 ## License
-
 MIT License. Designed and engineered for runtime AI agent security.
