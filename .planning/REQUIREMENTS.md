@@ -1,29 +1,41 @@
 # ChainBreak-Web3 — Requirements
 
+**Status: LOCKED** — 4 hardening changes applied 2026-09-25. This is the implementation spec.
+
+## Decision Semantics (Non-Negotiable)
+
+| Decision | Trigger | Sign/Broadcast |
+|---|---|---|
+| `ALLOW` | All invariants pass; calldata decoded; trajectory within budget | Permitted |
+| `BLOCK` | Known deterministic policy or invariant violation (wrong recipient, wrong asset, budget exceeded, disallowed method) | Prohibited |
+| `HOLD` | Cannot prove safety: malformed calldata, unknown selector, decoder exception, evaluator error, incomplete state | Prohibited |
+
+> `HOLD` and `BLOCK` are both execution-terminal. Neither permits signing or broadcast. The difference is diagnostic only: BLOCK names the violated rule; HOLD names the uncertainty. The security guarantee is identical.
+
 ## Milestone v2.0: ChainBreak-Web3
 
 ### Core Data Models & Schemas
-- [ ] **CORE-01**: Define typed `IntentEnvelope` model (intent ID, user goal, chain ID, allowed assets, recipients, contracts, methods, max single value, max session value, reason).
+- [ ] **CORE-01**: Define typed `IntentEnvelope` model (intent ID, user goal, chain ID, allowed assets, allowed recipients, allowed contracts, allowed methods, `max_single_value_per_asset: dict[str, int]`, `max_session_value_per_asset: dict[str, int]`, expected reason). Budget limits are **per-asset maps** (e.g. `{"USDC": 50, "ETH": 0}`) — never a single scalar threshold.
 - [ ] **CORE-02**: Define typed `TransactionProposal` model (chain ID, to address, value, calldata hex, nonce, gas limit).
 - [ ] **CORE-03**: Define typed `DecodedEvmTransaction` model (chain ID, asset, method, contract, recipient, amount, raw to, raw value, calldata hash).
-- [ ] **CORE-04**: Define typed `TrajectoryState` model (session ID, agent ID, cumulative spend per asset, allowed boundaries, nonce history, proposal history).
-- [ ] **CORE-05**: Define typed `DecisionReceipt` model (decision `ALLOW`/`HOLD`/`BLOCK`, violated invariants, state hashes, decoded tx, broadcast status, tx hash, reason).
+- [ ] **CORE-04**: Define typed `TrajectoryState` model (session ID, agent ID, `cumulative_spend_per_asset: dict[str, int]`, allowed boundaries, nonce history, proposal history). Spend accumulation is tracked per distinct asset contract address to match per-asset intent limits in `IntentEnvelope`.
+- [ ] **CORE-05**: Define typed `DecisionReceipt` model with decision `Literal["ALLOW", "HOLD", "BLOCK"]`, `violated_invariants: list[str]` (non-empty on BLOCK; empty on HOLD — HOLD carries `hold_reason` instead), `state_before_hash`, `proposal_hash`, decoded tx, `broadcast: bool`, `transaction_hash: str | None`, and `reason`. HOLD uses a distinct `hold_reason` field (e.g. `"MALFORMED_CALLDATA"`, `"UNKNOWN_SELECTOR"`, `"DECODER_EXCEPTION"`) — not a fake violated invariant name.
 
 ### Deterministic EVM Calldata Decoding
-- [ ] **DEC-01**: Implement deterministic calldata decoder supporting native ETH transfers (empty calldata, value > 0).
-- [ ] **DEC-02**: Implement deterministic ERC-20 `transfer(address,uint256)` calldata decoder parsing function selector `0xa9059cbb`, recipient, and amount.
-- [ ] **DEC-03**: Enforce fail-closed handling for malformed hex calldata, unknown function selectors, or truncated arguments (returning unparseable flag leading to `HOLD`).
-- [ ] **DEC-04**: Ensure decoder is 100% pure Python with zero reliance on external LLM calls.
+- [ ] **DEC-01**: Implement deterministic calldata decoder for native ETH transfers. Detection rule: `calldata == b""` or `len(calldata) == 0`, with `tx.value > 0`. Asset is `"ETH"`, recipient is `tx.to`. **The raw EVM transaction fields are the sole authority — no LLM inference, no tool-name heuristics.**
+- [ ] **DEC-02**: Implement deterministic ERC-20 `transfer(address,uint256)` calldata decoder. Detection rule: `calldata[:4] == 0xa9059cbb`. Decode recipient from `calldata[4:36]` (right-padded address), and amount from `calldata[36:68]` (uint256 big-endian). Token contract address is `tx.to`. **Any other 4-byte selector is not ERC-20 transfer and must not be guessed.**
+- [ ] **DEC-03**: Enforce fail-closed handling for all decode failures. If calldata is malformed hex, selector is unrecognized, arguments are truncated, or an exception is raised: return `DecodeResult(parseable=False, hold_reason="<specific reason>")`. This output routes to a `HOLD` decision, not `BLOCK`. The decoder must never raise to callers — all errors are caught and returned as typed failure values.
+- [ ] **DEC-04**: Decoder is 100% pure Python. No LLM calls, no external RPC calls, no network I/O. All logic operates on the raw `bytes` of the calldata field and the `int` value of `tx.value`.
 
 ### Invariant Engine
 - [ ] **INV-01**: Implement `INTENT_INTEGRITY` invariant checking decoded recipient, asset, amount, and contract against the authorized `IntentEnvelope`.
 - [ ] **INV-02**: Implement `CAPABILITY_BOUNDARY` invariant checking agent action permissions against allowed chain IDs, assets, recipients, contracts, and methods.
-- [ ] **INV-03**: Implement `TRAJECTORY_BUDGET` invariant checking cumulative session spend against `max_session_value` across sequential transactions.
-- [ ] **INV-04**: Enforce fail-closed evaluation: any unknown state, parsing ambiguity, or uncaught exception yields `HOLD` or `BLOCK`, never `ALLOW`.
+- [ ] **INV-03**: Implement `TRAJECTORY_BUDGET` invariant checking cumulative session spend **per asset** (`trajectory.cumulative_spend_per_asset[asset]`) against `intent.max_session_value_per_asset[asset]` and `intent.max_single_value_per_asset[asset]`. A transaction where the per-asset cumulative sum would exceed the asset's session limit must produce `BLOCK`. An asset not present in the intent's asset maps is implicitly disallowed and produces `BLOCK` via `CAPABILITY_BOUNDARY`.
+- [ ] **INV-04**: Enforce strict fail-closed evaluation semantics: (a) a decoded transaction that matches a known invariant rule violation → `BLOCK` with named invariant; (b) a transaction that cannot be evaluated due to parse failure, decoder exception, incomplete trajectory state, or evaluator error → `HOLD` with named reason code. The invariant engine must never convert uncertainty into `ALLOW`.
 
 ### Pre-Signing Execution Gate
 - [ ] **GATE-01**: Implement `ChainBreakExecutor` acting as the sole owner of transaction signing and broadcast invocation.
-- [ ] **GATE-02**: Enforce physical execution gating: when decision is `BLOCK` or `HOLD`, signing/broadcast methods are unreachable, guaranteeing `broadcast=false` and `tx_hash=null`.
+- [ ] **GATE-02**: Enforce physical execution gating: when decision is `BLOCK` or `HOLD`, the signer and broadcaster methods are structurally unreachable — not bypassed by a runtime flag. `DecisionReceipt.broadcast` must be `False` and `DecisionReceipt.transaction_hash` must be `None`. The gate must not distinguish between BLOCK and HOLD from an execution perspective — both are identical at the signing boundary.
 - [ ] **GATE-03**: Allow execution path to proceed to signer/broadcaster ONLY when decision is `ALLOW`, returning verified `broadcast=true` and transaction hash.
 
 ### Mutation & Trajectory Attacks
@@ -34,8 +46,8 @@
 
 ### Counterfactual Proof Engine
 - [ ] **PROOF-01**: Implement dual-execution counterfactual runner running identical attack proposals through unprotected Baseline vs protected ChainBreak.
-- [ ] **PROOF-02**: Generate side-by-side comparative evidence showing Baseline executes/broadcasts (`tx_hash` created) while ChainBreak blocks pre-signing (`tx_hash=null`).
-- [ ] **PROOF-03**: Record causal lineage identifying exact violated invariant, trigger parameters, and state progression.
+- [ ] **PROOF-02**: Generate side-by-side comparative evidence. **Honest labeling required:** On the local `LocalEVMAdapter`, the Baseline path completes a **simulated broadcast** (deterministic local state update, no real chain). On `TestnetEVMAdapter`, the Baseline path is a **real broadcast** to a public testnet. The proof output must clearly label which mode is active. ChainBreak's protected path produces `broadcast=false`, `tx_hash=null` in both modes.
+- [ ] **PROOF-03**: Record causal lineage identifying exact violated invariant (on BLOCK) or hold reason code (on HOLD), trigger parameters, step index, and pre/post trajectory state hash.
 
 ### Execution Substrates
 - [ ] **CHAIN-01**: Implement `LocalEVMAdapter` with deterministic address fixtures and local state tracking for 100% reliable offline/hackathon attack replay.
