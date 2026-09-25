@@ -127,9 +127,9 @@
 | Phase 2 | Deterministic EVM Calldata Decoder | Complete | `DEC-01` to `DEC-04` |
 | Phase 3 | Invariant Engine | Complete | `INV-01` to `INV-04` |
 | Phase 4 | Pre-Signing Execution Gate | Complete | `GATE-01` to `GATE-03` |
-| Phase 5 | Agent Simulator & Mutation Attacks | Next | `ATTACK-01` to `ATTACK-04` |
-| Phase 6 | Counterfactual Proof Engine | Pending | `PROOF-01` to `PROOF-03` |
-| Phase 7 | Execution Substrates (Local + Testnet) | Pending | `CHAIN-01`, `CHAIN-02` |
+| Phase 5 | Agent Simulator & Mutation Attacks | Complete | `ATTACK-01` to `ATTACK-04` |
+| Phase 6 | Counterfactual Proof Engine | Complete | `PROOF-01` to `PROOF-03` |
+| Phase 7 | Execution Substrates (Local + Testnet) | Next | `CHAIN-01`, `CHAIN-02` |
 | Phase 8 | Web3 Editorial Security Cockpit | Pending | `UI-01` to `UI-06` |
 | Phase 9 | Evaluation Suite & Benchmark Metrics | Pending | `EVAL-01` to `EVAL-03` |
 | Phase 10 | Submission Package & Hackathon Assets | Pending | Hackathon Deliverables |

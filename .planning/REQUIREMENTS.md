@@ -39,15 +39,15 @@
 - [x] **GATE-03**: Allow execution path to proceed to signer/broadcaster ONLY when decision is `ALLOW`, returning verified `broadcast=true` and transaction hash.
 
 ### Mutation & Trajectory Attacks
-- [ ] **ATTACK-01**: Implement agent proposal generator for legitimate baseline transactions matching intent.
-- [ ] **ATTACK-02**: Implement compromised agent parameter mutation attacks (recipient redirect to Mallory, inflated transfer value, wrong contract/token).
-- [ ] **ATTACK-03**: Implement multi-step trajectory attack where individual transactions appear valid but cumulative spend breaches session budget (e.g. 40 + 50 + 30 > 100).
-- [ ] **ATTACK-04**: Implement replay/nonce mutation scenario and unauthorized method call scenarios.
+- [x] **ATTACK-01**: Implement agent proposal generator for legitimate baseline transactions matching intent.
+- [x] **ATTACK-02**: Implement compromised agent parameter mutation attacks (recipient redirect to Mallory, inflated transfer value, wrong contract/token).
+- [x] **ATTACK-03**: Implement multi-step trajectory attack where individual transactions appear valid but cumulative spend breaches session budget (e.g. 40 + 50 + 30 > 100).
+- [x] **ATTACK-04**: Implement replay/nonce mutation scenario and unauthorized method call scenarios.
 
 ### Counterfactual Proof Engine
-- [ ] **PROOF-01**: Implement dual-execution counterfactual runner running identical attack proposals through unprotected Baseline vs protected ChainBreak.
-- [ ] **PROOF-02**: Generate side-by-side comparative evidence. **Honest labeling required:** On the local `LocalEVMAdapter`, the Baseline path completes a **simulated broadcast** (deterministic local state update, no real chain). On `TestnetEVMAdapter`, the Baseline path is a **real broadcast** to a public testnet. The proof output must clearly label which mode is active. ChainBreak's protected path produces `broadcast=false`, `tx_hash=null` in both modes.
-- [ ] **PROOF-03**: Record causal lineage identifying exact violated invariant (on BLOCK) or hold reason code (on HOLD), trigger parameters, step index, and pre/post trajectory state hash.
+- [x] **PROOF-01**: Implement dual-execution counterfactual runner running identical attack proposals through unprotected Baseline vs protected ChainBreak.
+- [x] **PROOF-02**: Generate side-by-side comparative evidence. **Honest labeling required:** On the local `LocalEVMAdapter`, the Baseline path completes a **simulated broadcast** (deterministic local state update, no real chain). On `TestnetEVMAdapter`, the Baseline path is a **real broadcast** to a public testnet. The proof output must clearly label which mode is active. ChainBreak's protected path produces `broadcast=false`, `tx_hash=null` in both modes.
+- [x] **PROOF-03**: Record causal lineage identifying exact violated invariant (on BLOCK) or hold reason code (on HOLD), trigger parameters, step index, and pre/post trajectory state hash.
 
 ### Execution Substrates
 - [ ] **CHAIN-01**: Implement `LocalEVMAdapter` with deterministic address fixtures and local state tracking for 100% reliable offline/hackathon attack replay.
@@ -104,13 +104,13 @@
 | GATE-01 | Phase 4 | Complete |
 | GATE-02 | Phase 4 | Complete |
 | GATE-03 | Phase 4 | Complete |
-| ATTACK-01 | Phase 5 | Pending |
-| ATTACK-02 | Phase 5 | Pending |
-| ATTACK-03 | Phase 5 | Pending |
-| ATTACK-04 | Phase 5 | Pending |
-| PROOF-01 | Phase 6 | Pending |
-| PROOF-02 | Phase 6 | Pending |
-| PROOF-03 | Phase 6 | Pending |
+| ATTACK-01 | Phase 5 | Complete |
+| ATTACK-02 | Phase 5 | Complete |
+| ATTACK-03 | Phase 5 | Complete |
+| ATTACK-04 | Phase 5 | Complete |
+| PROOF-01 | Phase 6 | Complete |
+| PROOF-02 | Phase 6 | Complete |
+| PROOF-03 | Phase 6 | Complete |
 | CHAIN-01 | Phase 7 | Pending |
 | CHAIN-02 | Phase 7 | Pending |
 | UI-01 | Phase 8 | Pending |
