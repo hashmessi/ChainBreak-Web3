@@ -62,9 +62,9 @@
 - [x] **UI-06**: Implement `CounterfactualProof` component visualizing side-by-side comparison between unprotected baseline broadcast and ChainBreak pre-signing block.
 
 ### Evaluation Suite & Metrics
-- [ ] **EVAL-01**: Implement 12-scenario adversarial test harness (W1–W12: safe, mutations, budget breaches, wrong chain, wrong contract, unauthorized method, replay, near-miss, malformed).
-- [ ] **EVAL-02**: Expose automated evaluation runner calculating detection rate, prevention rate, false-block rate, and decision latency.
-- [ ] **EVAL-03**: Implement `EvaluationPanel` in frontend displaying live evaluation metrics and scenario run matrix.
+- [x] **EVAL-01**: Implement 12-scenario adversarial test harness (W1–W12: safe, mutations, budget breaches, wrong chain, wrong contract, unauthorized method, replay, near-miss, malformed).
+- [x] **EVAL-02**: Expose automated evaluation runner calculating detection rate, prevention rate, false-block rate, and decision latency.
+- [x] **EVAL-03**: Implement `EvaluationPanel` in frontend displaying live evaluation metrics and scenario run matrix.
 
 ---
 
@@ -119,6 +119,6 @@
 | UI-04 | Phase 8 | Complete |
 | UI-05 | Phase 8 | Complete |
 | UI-06 | Phase 8 | Complete |
-| EVAL-01 | Phase 9 | Pending |
-| EVAL-02 | Phase 9 | Pending |
-| EVAL-03 | Phase 9 | Pending |
+| EVAL-01 | Phase 9 | Complete |
+| EVAL-02 | Phase 9 | Complete |
+| EVAL-03 | Phase 9 | Complete |

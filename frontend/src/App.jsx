@@ -8,10 +8,12 @@ import TransactionCard from './components/TransactionCard';
 import TrajectoryTimeline from './components/TrajectoryTimeline';
 import DecisionReceipt from './components/DecisionReceipt';
 import CounterfactualProof from './components/CounterfactualProof';
+import EvaluationPanel from './components/EvaluationPanel';
 
 const TABS = [
   { key: 'pipeline', label: 'Operator Pipeline', icon: Layers },
   { key: 'counterfactual', label: 'Counterfactual Proof', icon: GitCompare },
+  { key: 'benchmark', label: 'Adversarial Benchmarks (12)', icon: BarChart2 },
 ];
 
 export default function App() {
@@ -398,6 +400,29 @@ export default function App() {
             <CounterfactualProof
               counterfactualResult={counterfactualResult}
               onRunFeatured={(id) => {
+                const s = scenarios.find((x) => x.id === id);
+                if (s) {
+                  setSelectedScenario(s);
+                  handleExecuteCounterfactual(s, activeSubstrate);
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {/* Tab 3: Adversarial Benchmark Suite (EVAL-03) */}
+        {activeTab === 'benchmark' && (
+          <div>
+            <EvaluationPanel
+              substrate={activeSubstrate}
+              onSelectScenario={(id) => {
+                const s = scenarios.find((x) => x.id === id);
+                if (s) {
+                  setSelectedScenario(s);
+                  setActiveTab('pipeline');
+                }
+              }}
+              onRunCounterfactual={(id) => {
                 const s = scenarios.find((x) => x.id === id);
                 if (s) {
                   setSelectedScenario(s);

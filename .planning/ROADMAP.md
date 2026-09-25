@@ -131,6 +131,6 @@
 | Phase 6 | Counterfactual Proof Engine | Complete | `PROOF-01` to `PROOF-03` |
 | Phase 7 | Execution Substrates (Local + Testnet) | Complete | `CHAIN-01`, `CHAIN-02` |
 | Phase 8 | Web3 Editorial Security Cockpit | Complete | `UI-01` to `UI-06` |
-| Phase 9 | Evaluation Suite & Benchmark Metrics | Next | `EVAL-01` to `EVAL-03` |
-| Phase 10 | Submission Package & Hackathon Assets | Pending | Hackathon Deliverables |
+| Phase 9 | Evaluation Suite & Benchmark Metrics | Complete | `EVAL-01` to `EVAL-03` |
+| Phase 10 | Submission Package & Hackathon Assets | Next | Hackathon Deliverables |
 | Phase 11 | Final Hardening & Verification | Pending | Production Verification |

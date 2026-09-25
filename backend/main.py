@@ -20,7 +20,7 @@ if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
 
 from contextlib import asynccontextmanager
-from typing import List
+from typing import List, Optional, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -225,6 +225,11 @@ from backend.eval.runner import (
     run_protected_trajectory,
     run_counterfactual as run_web3_counterfactual,
 )
+from backend.eval.metrics import (
+    evaluate_all_web3_scenarios,
+    Web3EvaluationReport,
+    ScenarioBenchmarkRow,
+)
 from backend.chain.local_evm import LocalEVMAdapter
 from backend.chain.testnet import TestnetEVMAdapter, get_explorer_url
 from backend.chain.fixtures import (
@@ -316,6 +321,21 @@ async def run_web3_counterfactual_route(request: Web3CounterfactualRequest):
         broadcast_mode=broadcast_mode,
     )
     return result.model_dump()
+
+
+class Web3EvaluateRequest(BaseModel):
+    substrate: Literal["LOCAL", "TESTNET"] = "LOCAL"
+
+
+@app.post("/api/v2/evaluate")
+@app.get("/api/v2/evaluate")
+async def evaluate_web3_suite(request: Optional[Web3EvaluateRequest] = None):
+    """
+    Executes the 12-scenario adversarial benchmark suite and returns metrics report (EVAL-02).
+    """
+    substrate = request.substrate if request else "LOCAL"
+    report = evaluate_all_web3_scenarios(substrate=substrate)
+    return report.model_dump()
 
 
 # ─── Production Static Serving & SPA Fallback ──────────────────────────────────

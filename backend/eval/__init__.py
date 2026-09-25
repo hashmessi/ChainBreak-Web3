@@ -27,6 +27,11 @@ from .runner import (
     run_protected_trajectory,
     run_counterfactual,
 )
+from .metrics import (
+    ScenarioBenchmarkRow,
+    Web3EvaluationReport,
+    evaluate_all_web3_scenarios,
+)
 
 __all__ = [
     "Web3Scenario",
@@ -48,4 +53,7 @@ __all__ = [
     "run_baseline_trajectory",
     "run_protected_trajectory",
     "run_counterfactual",
+    "ScenarioBenchmarkRow",
+    "Web3EvaluationReport",
+    "evaluate_all_web3_scenarios",
 ]
