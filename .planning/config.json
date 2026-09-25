@@ -1,31 +1,34 @@
 {
-  "version": "1.0",
-  "project": "ChainBreak",
-  "milestone": 1,
-  "current_phase": 7,
+  "version": "2.0",
+  "project": "ChainBreak-Web3",
+  "milestone": 2,
+  "current_phase": 1,
   "phase_status": {
-    "1": "complete",
-    "2": "complete",
-    "3": "complete",
-    "4": "complete",
-    "5": "complete",
-    "6": "complete",
-    "7": "next"
+    "1": "pending",
+    "2": "pending",
+    "3": "pending",
+    "4": "pending",
+    "5": "pending",
+    "6": "pending",
+    "7": "pending",
+    "8": "pending",
+    "9": "pending",
+    "10": "pending",
+    "11": "pending"
   },
-  "last_updated": "2026-09-19",
-  "build_window_start": "2026-09-19T10:00:00-04:00",
-  "build_window_end": "2026-09-20T10:00:00-04:00",
+  "last_updated": "2026-09-25",
   "stack": {
-    "backend": "Python 3.12 + FastAPI",
+    "backend": "Python 3.12 + FastAPI + web3/eth-abi",
     "frontend": "React + Vite",
-    "llm": "OpenRouter (free tier)",
-    "db": "none (in-memory)"
+    "llm": "OpenRouter (semantic intent compilation only)",
+    "execution": "Local deterministic EVM adapter + Testnet EVM adapter"
   },
   "key_decisions": [
-    "LLM only extracts semantics, never makes security decisions",
-    "Deterministic invariant engine in pure Python",
-    "OpenRouter with deterministic fallback for demo reliability",
-    "Fail-closed: LLM failure → HOLD",
-    "5 scenarios: 3 dangerous (BLOCK), 2 safe (ALLOW)"
+    "ChainBreak is the deterministic trust boundary between agent intent and blockchain execution",
+    "LLM compiles intent envelope only; zero LLM in security decision or calldata decoding",
+    "Deterministic calldata decoder for ETH and ERC-20 transfers",
+    "Fail-closed: malformed calldata or error -> HOLD",
+    "Execution gate: BLOCK/HOLD physically suppresses signer/broadcast invocation",
+    "Counterfactual proof: identical attack proposal run in unprotected vs protected mode"
   ]
 }
