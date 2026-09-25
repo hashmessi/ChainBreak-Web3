@@ -123,9 +123,9 @@
 
 | Phase | Description | Status | Requirements |
 |---|---|---|---|
-| Phase 1 | Strict Web3 Data Models | Next | `CORE-01` to `CORE-05` |
-| Phase 2 | Deterministic EVM Calldata Decoder | Pending | `DEC-01` to `DEC-04` |
-| Phase 3 | Invariant Engine | Pending | `INV-01` to `INV-04` |
+| Phase 1 | Strict Web3 Data Models | Complete | `CORE-01` to `CORE-05` |
+| Phase 2 | Deterministic EVM Calldata Decoder | Complete | `DEC-01` to `DEC-04` |
+| Phase 3 | Invariant Engine | Next | `INV-01` to `INV-04` |
 | Phase 4 | Pre-Signing Execution Gate | Pending | `GATE-01` to `GATE-03` |
 | Phase 5 | Agent Simulator & Mutation Attacks | Pending | `ATTACK-01` to `ATTACK-04` |
 | Phase 6 | Counterfactual Proof Engine | Pending | `PROOF-01` to `PROOF-03` |

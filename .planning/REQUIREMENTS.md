@@ -15,17 +15,17 @@
 ## Milestone v2.0: ChainBreak-Web3
 
 ### Core Data Models & Schemas
-- [ ] **CORE-01**: Define typed `IntentEnvelope` model (intent ID, user goal, chain ID, allowed assets, allowed recipients, allowed contracts, allowed methods, `max_single_value_per_asset: dict[str, int]`, `max_session_value_per_asset: dict[str, int]`, expected reason). Budget limits are **per-asset maps** (e.g. `{"USDC": 50, "ETH": 0}`) — never a single scalar threshold.
-- [ ] **CORE-02**: Define typed `TransactionProposal` model (chain ID, to address, value, calldata hex, nonce, gas limit).
-- [ ] **CORE-03**: Define typed `DecodedEvmTransaction` model (chain ID, asset, method, contract, recipient, amount, raw to, raw value, calldata hash).
-- [ ] **CORE-04**: Define typed `TrajectoryState` model (session ID, agent ID, `cumulative_spend_per_asset: dict[str, int]`, allowed boundaries, nonce history, proposal history). Spend accumulation is tracked per distinct asset contract address to match per-asset intent limits in `IntentEnvelope`.
-- [ ] **CORE-05**: Define typed `DecisionReceipt` model with decision `Literal["ALLOW", "HOLD", "BLOCK"]`, `violated_invariants: list[str]` (non-empty on BLOCK; empty on HOLD — HOLD carries `hold_reason` instead), `state_before_hash`, `proposal_hash`, decoded tx, `broadcast: bool`, `transaction_hash: str | None`, and `reason`. HOLD uses a distinct `hold_reason` field (e.g. `"MALFORMED_CALLDATA"`, `"UNKNOWN_SELECTOR"`, `"DECODER_EXCEPTION"`) — not a fake violated invariant name.
+- [x] **CORE-01**: Define typed `IntentEnvelope` model (intent ID, user goal, chain ID, allowed assets, allowed recipients, allowed contracts, allowed methods, `max_single_value_per_asset: dict[str, int]`, `max_session_value_per_asset: dict[str, int]`, expected reason). Budget limits are **per-asset maps** (e.g. `{"USDC": 50, "ETH": 0}`) — never a single scalar threshold.
+- [x] **CORE-02**: Define typed `TransactionProposal` model (chain ID, to address, value, calldata hex, nonce, gas limit).
+- [x] **CORE-03**: Define typed `DecodedEvmTransaction` model (chain ID, asset, method, contract, recipient, amount, raw to, raw value, calldata hash).
+- [x] **CORE-04**: Define typed `TrajectoryState` model (session ID, agent ID, `cumulative_spend_per_asset: dict[str, int]`, allowed boundaries, nonce history, proposal history). Spend accumulation is tracked per distinct asset contract address to match per-asset intent limits in `IntentEnvelope`.
+- [x] **CORE-05**: Define typed `DecisionReceipt` model with decision `Literal["ALLOW", "HOLD", "BLOCK"]`, `violated_invariants: list[str]` (non-empty on BLOCK; empty on HOLD — HOLD carries `hold_reason` instead), `state_before_hash`, `proposal_hash`, decoded tx, `broadcast: bool`, `transaction_hash: str | None`, and `reason`. HOLD uses a distinct `hold_reason` field (e.g. `"MALFORMED_CALLDATA"`, `"UNKNOWN_SELECTOR"`, `"DECODER_EXCEPTION"`) — not a fake violated invariant name.
 
 ### Deterministic EVM Calldata Decoding
-- [ ] **DEC-01**: Implement deterministic calldata decoder for native ETH transfers. Detection rule: `calldata == b""` or `len(calldata) == 0`, with `tx.value > 0`. Asset is `"ETH"`, recipient is `tx.to`. **The raw EVM transaction fields are the sole authority — no LLM inference, no tool-name heuristics.**
-- [ ] **DEC-02**: Implement deterministic ERC-20 `transfer(address,uint256)` calldata decoder. Detection rule: `calldata[:4] == 0xa9059cbb`. Decode recipient from `calldata[4:36]` (right-padded address), and amount from `calldata[36:68]` (uint256 big-endian). Token contract address is `tx.to`. **Any other 4-byte selector is not ERC-20 transfer and must not be guessed.**
-- [ ] **DEC-03**: Enforce fail-closed handling for all decode failures. If calldata is malformed hex, selector is unrecognized, arguments are truncated, or an exception is raised: return `DecodeResult(parseable=False, hold_reason="<specific reason>")`. This output routes to a `HOLD` decision, not `BLOCK`. The decoder must never raise to callers — all errors are caught and returned as typed failure values.
-- [ ] **DEC-04**: Decoder is 100% pure Python. No LLM calls, no external RPC calls, no network I/O. All logic operates on the raw `bytes` of the calldata field and the `int` value of `tx.value`.
+- [x] **DEC-01**: Implement deterministic calldata decoder for native ETH transfers. Detection rule: `calldata == b""` or `len(calldata) == 0`, with `tx.value > 0`. Asset is `"ETH"`, recipient is `tx.to`. **The raw EVM transaction fields are the sole authority — no LLM inference, no tool-name heuristics.**
+- [x] **DEC-02**: Implement deterministic ERC-20 `transfer(address,uint256)` calldata decoder. Detection rule: `calldata[:4] == 0xa9059cbb`. Decode recipient from `calldata[4:36]` (right-padded address), and amount from `calldata[36:68]` (uint256 big-endian). Token contract address is `tx.to`. **Any other 4-byte selector is not ERC-20 transfer and must not be guessed.**
+- [x] **DEC-03**: Enforce fail-closed handling for all decode failures. If calldata is malformed hex, selector is unrecognized, arguments are truncated, or an exception is raised: return `DecodeResult(parseable=False, hold_reason="<specific reason>")`. This output routes to a `HOLD` decision, not `BLOCK`. The decoder must never raise to callers — all errors are caught and returned as typed failure values.
+- [x] **DEC-04**: Decoder is 100% pure Python. No LLM calls, no external RPC calls, no network I/O. All logic operates on the raw `bytes` of the calldata field and the `int` value of `tx.value`.
 
 ### Invariant Engine
 - [ ] **INV-01**: Implement `INTENT_INTEGRITY` invariant checking decoded recipient, asset, amount, and contract against the authorized `IntentEnvelope`.
@@ -88,15 +88,15 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | Phase 1 | Pending |
-| CORE-02 | Phase 1 | Pending |
-| CORE-03 | Phase 1 | Pending |
-| CORE-04 | Phase 1 | Pending |
-| CORE-05 | Phase 1 | Pending |
-| DEC-01 | Phase 2 | Pending |
-| DEC-02 | Phase 2 | Pending |
-| DEC-03 | Phase 2 | Pending |
-| DEC-04 | Phase 2 | Pending |
+| CORE-01 | Phase 1 | Complete |
+| CORE-02 | Phase 1 | Complete |
+| CORE-03 | Phase 1 | Complete |
+| CORE-04 | Phase 1 | Complete |
+| CORE-05 | Phase 1 | Complete |
+| DEC-01 | Phase 2 | Complete |
+| DEC-02 | Phase 2 | Complete |
+| DEC-03 | Phase 2 | Complete |
+| DEC-04 | Phase 2 | Complete |
 | INV-01 | Phase 3 | Pending |
 | INV-02 | Phase 3 | Pending |
 | INV-03 | Phase 3 | Pending |
