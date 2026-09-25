@@ -17,6 +17,14 @@ export default function TransactionCard({ proposal, decoded, stepIndex, isAttack
 
   const isMallory = decoded?.recipient?.toLowerCase()?.includes('90f79bf6') || proposal.to?.toLowerCase()?.includes('90f79bf6');
 
+  // Contextual attack label for demo clarity
+  let attackLabel = 'ATTACK DRIFT DETECTED';
+  if (isMallory) attackLabel = 'ATTACK: RECIPIENT MUTATION';
+  else if (proposal.chain_id !== 11155111 && proposal.chain_id !== 31337) attackLabel = 'ATTACK: UNAUTHORIZED CHAIN ID';
+  else if (proposal.to?.toLowerCase()?.includes('dead')) attackLabel = 'ATTACK: UNTRUSTED CONTRACT';
+  else if (proposal.data?.startsWith('0x095ea7b3')) attackLabel = 'ATTACK: UNAPPROVED METHOD';
+  else if (decoded?.amount && decoded.amount > 100_000_000) attackLabel = 'ATTACK: AMOUNT INFLATION';
+
   return (
     <div className={`transaction-card card-obsidian border rounded-xl p-5 mb-4 ${
       isAttacking || isMallory ? 'border-violation-red/50 bg-violation-red/5' : 'border-graphite bg-card-bg'
@@ -29,10 +37,10 @@ export default function TransactionCard({ proposal, decoded, stepIndex, isAttack
             Step {stepIndex !== undefined ? stepIndex + 1 : 1}: Agent EVM Proposal
           </h4>
         </div>
-        {isMallory && (
+        {(isAttacking || isMallory) && (
           <span className="flex items-center gap-1 text-meta px-2.5 py-1 rounded bg-violation-red/20 text-violation-red border border-violation-red/40 font-semibold animate-pulse">
             <AlertTriangle className="w-3 h-3" />
-            ATTACK DRIFT DETECTED
+            {attackLabel}
           </span>
         )}
       </div>

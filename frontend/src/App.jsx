@@ -52,10 +52,25 @@ export default function App() {
         if (scenRes.ok) {
           const scenData = await scenRes.json();
           if (mounted) {
-            setScenarios(scenData.scenarios || []);
+            const scens = scenData.scenarios || [];
+            setScenarios(scens);
             // Default to W3 Flagship attack for immediate judge impact
-            const initial = scenData.scenarios.find((s) => s.id === 'W3') || scenData.scenarios[0];
+            const initial = scens.find((s) => s.id === 'W3') || scens[0];
             setSelectedScenario(initial);
+
+            // Pre-load counterfactual proof for default flagship so Proof tab is instantly primed
+            if (initial) {
+              fetch('/api/v2/counterfactual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ scenario_id: initial.id, substrate: 'LOCAL' }),
+              })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((proof) => {
+                  if (mounted && proof) setCounterfactualResult(proof);
+                })
+                .catch(() => {});
+            }
           }
         }
 
@@ -79,6 +94,14 @@ export default function App() {
     loadData();
     return () => { mounted = false; };
   }, []);
+
+  // Safe scenario selector helper
+  const handleSelectScenario = (scenario) => {
+    if (!scenario) return;
+    setActiveStepIndex(0);
+    setRunReport(null);
+    setSelectedScenario(scenario);
+  };
 
   // Execute single run
   const handleExecuteRun = async (scenarioToRun = selectedScenario, mode = activeRunMode, substrate = activeSubstrate) => {
@@ -145,7 +168,7 @@ export default function App() {
     }
   };
 
-  // Trigger run whenever selected scenario changes
+  // Trigger run whenever selected scenario, run mode, or substrate changes
   useEffect(() => {
     if (selectedScenario) {
       handleExecuteRun(selectedScenario, activeRunMode, activeSubstrate);
@@ -252,7 +275,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 const s = scenarios.find((x) => x.id === 'W3');
-                if (s) setSelectedScenario(s);
+                if (s) handleSelectScenario(s);
               }}
               className={`px-3 py-1.5 rounded-lg text-caption font-mono font-bold border transition-all ${
                 selectedScenario?.id === 'W3'
@@ -267,7 +290,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 const s = scenarios.find((x) => x.id === 'W5');
-                if (s) setSelectedScenario(s);
+                if (s) handleSelectScenario(s);
               }}
               className={`px-3 py-1.5 rounded-lg text-caption font-mono font-bold border transition-all ${
                 selectedScenario?.id === 'W5'
@@ -282,7 +305,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 const s = scenarios.find((x) => x.id === 'W2');
-                if (s) setSelectedScenario(s);
+                if (s) handleSelectScenario(s);
               }}
               className={`px-3 py-1.5 rounded-lg text-caption font-mono font-bold border transition-all ${
                 selectedScenario?.id === 'W2'
@@ -298,7 +321,7 @@ export default function App() {
               value={selectedScenario?.id || ''}
               onChange={(e) => {
                 const s = scenarios.find((x) => x.id === e.target.value);
-                if (s) setSelectedScenario(s);
+                if (s) handleSelectScenario(s);
               }}
               className="bg-carbon border border-graphite rounded-lg px-3 py-1.5 text-caption font-mono text-chalk focus:outline-none focus:border-compass-gold"
             >
@@ -402,7 +425,7 @@ export default function App() {
               onRunFeatured={(id) => {
                 const s = scenarios.find((x) => x.id === id);
                 if (s) {
-                  setSelectedScenario(s);
+                  handleSelectScenario(s);
                   handleExecuteCounterfactual(s, activeSubstrate);
                 }
               }}
@@ -418,14 +441,14 @@ export default function App() {
               onSelectScenario={(id) => {
                 const s = scenarios.find((x) => x.id === id);
                 if (s) {
-                  setSelectedScenario(s);
+                  handleSelectScenario(s);
                   setActiveTab('pipeline');
                 }
               }}
               onRunCounterfactual={(id) => {
                 const s = scenarios.find((x) => x.id === id);
                 if (s) {
-                  setSelectedScenario(s);
+                  handleSelectScenario(s);
                   handleExecuteCounterfactual(s, activeSubstrate);
                 }
               }}

@@ -60,12 +60,21 @@ export default function CounterfactualProof({ counterfactualResult, onRunAgain =
     const protR = protReceipts[i];
     const isDivergence = i === divergence_step;
 
+    let protStatus = 'UNREACHED';
+    if (protR) {
+      protStatus = protR.decision;
+    } else if (isBlocked || (divergence_step !== null && i > divergence_step)) {
+      protStatus = 'HALTED';
+    } else {
+      protStatus = 'ALLOW';
+    }
+
     rows.push({
       stepNum,
       baseDecision: baseR ? baseR.decision : 'SKIPPED',
       baseBroadcast: baseR ? baseR.broadcast : false,
       baseTxHash: baseR ? baseR.transaction_hash : null,
-      protDecision: protR ? protR.decision : (isBlocked ? 'HALTED' : 'ALLOW'),
+      protDecision: protStatus,
       protBroadcast: protR ? protR.broadcast : false,
       protTxHash: protR ? protR.transaction_hash : null,
       isDivergence,
@@ -214,28 +223,43 @@ export default function CounterfactualProof({ counterfactualResult, onRunAgain =
             </span>
           </div>
           <div className="space-y-2">
-            {rows.map((row) => (
-              <div
-                key={`prot-${row.stepNum}`}
-                className={`p-2.5 rounded border text-caption font-mono ${
-                  row.isDivergence
-                    ? 'bg-violation-red/10 border-violation-red/50'
-                    : 'bg-carbon border-graphite'
-                }`}
-              >
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-smoke">Step {row.stepNum}</span>
-                  {row.isDivergence ? (
-                    <span className="text-violation-red font-bold">BLOCKED PRE-SIGNING</span>
-                  ) : (
-                    <span className="text-pulse-green font-bold">ALLOWED</span>
-                  )}
+            {rows.map((row) => {
+              const isBlock = row.protDecision === 'BLOCK' || row.isDivergence;
+              const isHold = row.protDecision === 'HOLD';
+              const isAllow = row.protDecision === 'ALLOW';
+              const isHalted = row.protDecision === 'HALTED' || row.protDecision === 'UNREACHED';
+
+              let cardClass = 'bg-carbon border-graphite';
+              if (isBlock) cardClass = 'bg-violation-red/10 border-violation-red/50';
+              else if (isHold) cardClass = 'bg-hold-amber/10 border-hold-amber/50';
+              else if (isHalted) cardClass = 'bg-carbon/40 border-graphite/40 opacity-75';
+
+              return (
+                <div
+                  key={`prot-${row.stepNum}`}
+                  className={`p-2.5 rounded border text-caption font-mono ${cardClass}`}
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-smoke">Step {row.stepNum}</span>
+                    {isBlock && (
+                      <span className="text-violation-red font-bold">BLOCKED PRE-SIGNING</span>
+                    )}
+                    {isHold && (
+                      <span className="text-hold-amber font-bold">FAIL-CLOSED HOLD</span>
+                    )}
+                    {isAllow && (
+                      <span className="text-pulse-green font-bold">ALLOWED</span>
+                    )}
+                    {isHalted && (
+                      <span className="text-ash font-medium">HALTED (NOT EXECUTED)</span>
+                    )}
+                  </div>
+                  <div className="text-meta text-ash truncate">
+                    Hash: {row.protTxHash || (isHalted ? 'null (Execution Severed)' : 'null (Pre-Signing Gate Block)')}
+                  </div>
                 </div>
-                <div className="text-meta text-ash truncate">
-                  Hash: {row.protTxHash || 'null (Execution Severed)'}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

@@ -290,7 +290,7 @@ async def get_web3_fixtures():
 
 
 @app.post("/api/v2/run")
-async def run_web3_single(request: Web3RunRequest):
+def run_web3_single(request: Web3RunRequest):
     scenario = get_scenario_by_id(request.scenario_id)
     if not scenario:
         raise HTTPException(status_code=404, detail=f"Web3 Scenario '{request.scenario_id}' not found.")
@@ -307,7 +307,7 @@ async def run_web3_single(request: Web3RunRequest):
 
 
 @app.post("/api/v2/counterfactual")
-async def run_web3_counterfactual_route(request: Web3CounterfactualRequest):
+def run_web3_counterfactual_route(request: Web3CounterfactualRequest):
     scenario = get_scenario_by_id(request.scenario_id)
     if not scenario:
         raise HTTPException(status_code=404, detail=f"Web3 Scenario '{request.scenario_id}' not found.")
@@ -328,12 +328,20 @@ class Web3EvaluateRequest(BaseModel):
 
 
 @app.post("/api/v2/evaluate")
-@app.get("/api/v2/evaluate")
-async def evaluate_web3_suite(request: Optional[Web3EvaluateRequest] = None):
+def evaluate_web3_suite_post(request: Optional[Web3EvaluateRequest] = None):
     """
-    Executes the 12-scenario adversarial benchmark suite and returns metrics report (EVAL-02).
+    Executes the 12-scenario adversarial benchmark suite via POST and returns metrics report (EVAL-02).
     """
     substrate = request.substrate if request else "LOCAL"
+    report = evaluate_all_web3_scenarios(substrate=substrate)
+    return report.model_dump()
+
+
+@app.get("/api/v2/evaluate")
+def evaluate_web3_suite_get(substrate: Literal["LOCAL", "TESTNET"] = "LOCAL"):
+    """
+    Executes the 12-scenario adversarial benchmark suite via GET and returns metrics report (EVAL-02).
+    """
     report = evaluate_all_web3_scenarios(substrate=substrate)
     return report.model_dump()
 

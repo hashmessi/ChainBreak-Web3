@@ -177,7 +177,7 @@ export default function EvaluationPanel({
               <Timer className="w-4 h-4 text-smoke" />
             </div>
             <div className="text-heading-lg font-mono font-extrabold text-chalk mt-2">
-              {report.avg_latency_ms} <span className="text-caption font-normal text-smoke">ms</span>
+              {typeof report.avg_latency_ms === 'number' ? report.avg_latency_ms.toFixed(2) : report.avg_latency_ms} <span className="text-caption font-normal text-smoke">ms</span>
             </div>
             <div className="text-meta text-pulse-green mt-1">
               Sub-10ms deterministic speed
