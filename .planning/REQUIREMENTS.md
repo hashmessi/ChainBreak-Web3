@@ -50,16 +50,16 @@
 - [x] **PROOF-03**: Record causal lineage identifying exact violated invariant (on BLOCK) or hold reason code (on HOLD), trigger parameters, step index, and pre/post trajectory state hash.
 
 ### Execution Substrates
-- [ ] **CHAIN-01**: Implement `LocalEVMAdapter` with deterministic address fixtures and local state tracking for 100% reliable offline/hackathon attack replay.
-- [ ] **CHAIN-02**: Implement `TestnetEVMAdapter` supporting real broadcast on public EVM testnet (Sepolia/Base Sepolia) for allowed transactions.
+- [x] **CHAIN-01**: Implement `LocalEVMAdapter` with deterministic address fixtures and local state tracking for 100% reliable offline/hackathon attack replay.
+- [x] **CHAIN-02**: Implement `TestnetEVMAdapter` supporting real broadcast on public EVM testnet (Sepolia/Base Sepolia) for allowed transactions.
 
 ### Web3 Editorial Security Cockpit
-- [ ] **UI-01**: Develop React + Vite UI using Obsidian editorial dark design system displaying end-to-end operator flow.
-- [ ] **UI-02**: Implement `IntentPanel` displaying user goal and authorized intent envelope boundaries.
-- [ ] **UI-03**: Implement `TransactionCard` displaying raw EVM proposal side-by-side with deterministically decoded fields.
-- [ ] **UI-04**: Implement `TrajectoryTimeline` displaying multi-step session history and accumulated financial budget consumption.
-- [ ] **UI-05**: Implement `DecisionReceipt` displaying cryptographic decision proof, violated invariants, and verified broadcast suppression (`broadcast=false`, `tx_hash=null`).
-- [ ] **UI-06**: Implement `CounterfactualProof` component visualizing side-by-side comparison between unprotected baseline broadcast and ChainBreak pre-signing block.
+- [x] **UI-01**: Develop React + Vite UI using Obsidian editorial dark design system displaying end-to-end operator flow.
+- [x] **UI-02**: Implement `IntentPanel` displaying user goal and authorized intent envelope boundaries.
+- [x] **UI-03**: Implement `TransactionCard` displaying raw EVM proposal side-by-side with deterministically decoded fields.
+- [x] **UI-04**: Implement `TrajectoryTimeline` displaying multi-step session history and accumulated financial budget consumption.
+- [x] **UI-05**: Implement `DecisionReceipt` displaying cryptographic decision proof, violated invariants, and verified broadcast suppression (`broadcast=false`, `tx_hash=null`).
+- [x] **UI-06**: Implement `CounterfactualProof` component visualizing side-by-side comparison between unprotected baseline broadcast and ChainBreak pre-signing block.
 
 ### Evaluation Suite & Metrics
 - [ ] **EVAL-01**: Implement 12-scenario adversarial test harness (W1–W12: safe, mutations, budget breaches, wrong chain, wrong contract, unauthorized method, replay, near-miss, malformed).
@@ -111,14 +111,14 @@
 | PROOF-01 | Phase 6 | Complete |
 | PROOF-02 | Phase 6 | Complete |
 | PROOF-03 | Phase 6 | Complete |
-| CHAIN-01 | Phase 7 | Pending |
-| CHAIN-02 | Phase 7 | Pending |
-| UI-01 | Phase 8 | Pending |
-| UI-02 | Phase 8 | Pending |
-| UI-03 | Phase 8 | Pending |
-| UI-04 | Phase 8 | Pending |
-| UI-05 | Phase 8 | Pending |
-| UI-06 | Phase 8 | Pending |
+| CHAIN-01 | Phase 7 | Complete |
+| CHAIN-02 | Phase 7 | Complete |
+| UI-01 | Phase 8 | Complete |
+| UI-02 | Phase 8 | Complete |
+| UI-03 | Phase 8 | Complete |
+| UI-04 | Phase 8 | Complete |
+| UI-05 | Phase 8 | Complete |
+| UI-06 | Phase 8 | Complete |
 | EVAL-01 | Phase 9 | Pending |
 | EVAL-02 | Phase 9 | Pending |
 | EVAL-03 | Phase 9 | Pending |

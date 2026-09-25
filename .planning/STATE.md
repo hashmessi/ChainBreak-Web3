@@ -2,10 +2,10 @@
 
 ## Current Position
 
-Phase: 07-execution-substrates
+Phase: 09-evaluation-suite-and-benchmark-metrics
 Plan: 01
-Status: Phase 1 through 6 (Models, Decoder, Invariants, Pre-Signing Gate, Agent Simulator & Mutations, Counterfactual Proof) verified & completed. Ready for Phase 7.
-Last activity: 2026-09-25 — Phase 5 & 6 executed, 87/87 tests passing.
+Status: Phase 1 through 8 (Models, Decoder, Invariants, Gate, Mutators, Counterfactual, Substrates, Web3 Cockpit) verified & completed. Ready for Phase 9.
+Last activity: 2026-09-25 — Phase 7 & 8 executed, 96/96 tests passing, frontend built clean.
 
 ## Current Milestone: v2.0 ChainBreak-Web3
 - **Goal:** Provider-agnostic deterministic intent-integrity firewall for autonomous EVM agents.

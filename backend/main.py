@@ -213,6 +213,111 @@ async def evaluate_all():
     return report.model_dump()
 
 
+# ─── Web3 V2 API Endpoints ───────────────────────────────────────────────────
+from typing import Literal
+from backend.eval.scenarios import (
+    SCENARIOS_CORPUS,
+    get_scenario_by_id,
+    get_all_scenarios as get_all_web3_scenarios,
+)
+from backend.eval.runner import (
+    run_baseline_trajectory,
+    run_protected_trajectory,
+    run_counterfactual as run_web3_counterfactual,
+)
+from backend.chain.local_evm import LocalEVMAdapter
+from backend.chain.testnet import TestnetEVMAdapter, get_explorer_url
+from backend.chain.fixtures import (
+    ALICE_ADDRESS,
+    BOB_ADDRESS,
+    MALLORY_ADDRESS,
+    OPERATOR_AGENT_ADDRESS,
+    SEPOLIA_USDC_CONTRACT,
+    CHAIN_ID_SEPOLIA,
+)
+
+
+class Web3RunRequest(BaseModel):
+    scenario_id: str
+    run_mode: Literal["BASELINE", "PROTECTED"] = "PROTECTED"
+    substrate: Literal["LOCAL", "TESTNET"] = "LOCAL"
+
+
+class Web3CounterfactualRequest(BaseModel):
+    scenario_id: str
+    substrate: Literal["LOCAL", "TESTNET"] = "LOCAL"
+
+
+@app.get("/api/v2/scenarios")
+async def list_web3_scenarios():
+    scenarios = get_all_web3_scenarios()
+    return {
+        "scenarios": [
+            {
+                "id": s.id,
+                "name": s.name,
+                "description": s.description,
+                "category": s.category,
+                "expected_decision": s.expected_decision.value,
+                "expected_invariants": s.expected_invariants,
+                "expected_hold_reason": s.expected_hold_reason,
+                "divergence_step": s.divergence_step,
+                "intent": s.intent.model_dump(),
+                "proposal_count": len(s.proposals),
+                "proposals": [p.model_dump() for p in s.proposals],
+            }
+            for s in scenarios
+        ]
+    }
+
+
+@app.get("/api/v2/fixtures")
+async def get_web3_fixtures():
+    return {
+        "chain_id": CHAIN_ID_SEPOLIA,
+        "operator": OPERATOR_AGENT_ADDRESS,
+        "alice": ALICE_ADDRESS,
+        "bob": BOB_ADDRESS,
+        "mallory": MALLORY_ADDRESS,
+        "sepolia_usdc": SEPOLIA_USDC_CONTRACT,
+        "explorer_base": "https://sepolia.etherscan.io/tx",
+    }
+
+
+@app.post("/api/v2/run")
+async def run_web3_single(request: Web3RunRequest):
+    scenario = get_scenario_by_id(request.scenario_id)
+    if not scenario:
+        raise HTTPException(status_code=404, detail=f"Web3 Scenario '{request.scenario_id}' not found.")
+
+    broadcast_mode = "REAL_TESTNET" if request.substrate == "TESTNET" else "SIMULATED_LOCAL"
+    adapter = TestnetEVMAdapter() if request.substrate == "TESTNET" else LocalEVMAdapter()
+
+    if request.run_mode == "BASELINE":
+        report = run_baseline_trajectory(scenario, adapter, broadcast_mode=broadcast_mode)
+    else:
+        report = run_protected_trajectory(scenario, adapter, broadcast_mode=broadcast_mode)
+
+    return report.model_dump()
+
+
+@app.post("/api/v2/counterfactual")
+async def run_web3_counterfactual_route(request: Web3CounterfactualRequest):
+    scenario = get_scenario_by_id(request.scenario_id)
+    if not scenario:
+        raise HTTPException(status_code=404, detail=f"Web3 Scenario '{request.scenario_id}' not found.")
+
+    broadcast_mode = "REAL_TESTNET" if request.substrate == "TESTNET" else "SIMULATED_LOCAL"
+    adapter_factory = (lambda: TestnetEVMAdapter()) if request.substrate == "TESTNET" else (lambda: LocalEVMAdapter())
+
+    result = run_web3_counterfactual(
+        scenario=scenario,
+        adapter_factory=adapter_factory,
+        broadcast_mode=broadcast_mode,
+    )
+    return result.model_dump()
+
+
 # ─── Production Static Serving & SPA Fallback ──────────────────────────────────
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
