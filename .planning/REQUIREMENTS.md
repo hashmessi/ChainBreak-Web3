@@ -28,15 +28,15 @@
 - [x] **DEC-04**: Decoder is 100% pure Python. No LLM calls, no external RPC calls, no network I/O. All logic operates on the raw `bytes` of the calldata field and the `int` value of `tx.value`.
 
 ### Invariant Engine
-- [ ] **INV-01**: Implement `INTENT_INTEGRITY` invariant checking decoded recipient, asset, amount, and contract against the authorized `IntentEnvelope`.
-- [ ] **INV-02**: Implement `CAPABILITY_BOUNDARY` invariant checking agent action permissions against allowed chain IDs, assets, recipients, contracts, and methods.
-- [ ] **INV-03**: Implement `TRAJECTORY_BUDGET` invariant checking cumulative session spend **per asset** (`trajectory.cumulative_spend_per_asset[asset]`) against `intent.max_session_value_per_asset[asset]` and `intent.max_single_value_per_asset[asset]`. A transaction where the per-asset cumulative sum would exceed the asset's session limit must produce `BLOCK`. An asset not present in the intent's asset maps is implicitly disallowed and produces `BLOCK` via `CAPABILITY_BOUNDARY`.
-- [ ] **INV-04**: Enforce strict fail-closed evaluation semantics: (a) a decoded transaction that matches a known invariant rule violation → `BLOCK` with named invariant; (b) a transaction that cannot be evaluated due to parse failure, decoder exception, incomplete trajectory state, or evaluator error → `HOLD` with named reason code. The invariant engine must never convert uncertainty into `ALLOW`.
+- [x] **INV-01**: Implement `INTENT_INTEGRITY` invariant checking decoded recipient, asset, amount, and contract against the authorized `IntentEnvelope`.
+- [x] **INV-02**: Implement `CAPABILITY_BOUNDARY` invariant checking agent action permissions against allowed chain IDs, assets, recipients, contracts, and methods.
+- [x] **INV-03**: Implement `TRAJECTORY_BUDGET` invariant checking cumulative session spend **per asset** (`trajectory.cumulative_spend_per_asset[asset]`) against `intent.max_session_value_per_asset[asset]` and `intent.max_single_value_per_asset[asset]`. A transaction where the per-asset cumulative sum would exceed the asset's session limit must produce `BLOCK`. An asset not present in the intent's asset maps is implicitly disallowed and produces `BLOCK` via `CAPABILITY_BOUNDARY`.
+- [x] **INV-04**: Enforce strict fail-closed evaluation semantics: (a) a decoded transaction that matches a known invariant rule violation → `BLOCK` with named invariant; (b) a transaction that cannot be evaluated due to parse failure, decoder exception, incomplete trajectory state, or evaluator error → `HOLD` with named reason code. The invariant engine must never convert uncertainty into `ALLOW`.
 
 ### Pre-Signing Execution Gate
-- [ ] **GATE-01**: Implement `ChainBreakExecutor` acting as the sole owner of transaction signing and broadcast invocation.
-- [ ] **GATE-02**: Enforce physical execution gating: when decision is `BLOCK` or `HOLD`, the signer and broadcaster methods are structurally unreachable — not bypassed by a runtime flag. `DecisionReceipt.broadcast` must be `False` and `DecisionReceipt.transaction_hash` must be `None`. The gate must not distinguish between BLOCK and HOLD from an execution perspective — both are identical at the signing boundary.
-- [ ] **GATE-03**: Allow execution path to proceed to signer/broadcaster ONLY when decision is `ALLOW`, returning verified `broadcast=true` and transaction hash.
+- [x] **GATE-01**: Implement `ChainBreakExecutor` acting as the sole owner of transaction signing and broadcast invocation.
+- [x] **GATE-02**: Enforce physical execution gating: when decision is `BLOCK` or `HOLD`, the signer and broadcaster methods are structurally unreachable — not bypassed by a runtime flag. `DecisionReceipt.broadcast` must be `False` and `DecisionReceipt.transaction_hash` must be `None`. The gate must not distinguish between BLOCK and HOLD from an execution perspective — both are identical at the signing boundary.
+- [x] **GATE-03**: Allow execution path to proceed to signer/broadcaster ONLY when decision is `ALLOW`, returning verified `broadcast=true` and transaction hash.
 
 ### Mutation & Trajectory Attacks
 - [ ] **ATTACK-01**: Implement agent proposal generator for legitimate baseline transactions matching intent.
@@ -97,13 +97,13 @@
 | DEC-02 | Phase 2 | Complete |
 | DEC-03 | Phase 2 | Complete |
 | DEC-04 | Phase 2 | Complete |
-| INV-01 | Phase 3 | Pending |
-| INV-02 | Phase 3 | Pending |
-| INV-03 | Phase 3 | Pending |
-| INV-04 | Phase 3 | Pending |
-| GATE-01 | Phase 4 | Pending |
-| GATE-02 | Phase 4 | Pending |
-| GATE-03 | Phase 4 | Pending |
+| INV-01 | Phase 3 | Complete |
+| INV-02 | Phase 3 | Complete |
+| INV-03 | Phase 3 | Complete |
+| INV-04 | Phase 3 | Complete |
+| GATE-01 | Phase 4 | Complete |
+| GATE-02 | Phase 4 | Complete |
+| GATE-03 | Phase 4 | Complete |
 | ATTACK-01 | Phase 5 | Pending |
 | ATTACK-02 | Phase 5 | Pending |
 | ATTACK-03 | Phase 5 | Pending |

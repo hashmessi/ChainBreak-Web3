@@ -1,6 +1,6 @@
 """
 ChainBreak-Web3 Core Module
-Typed schemas, models, invariants, and trajectory tracking.
+Typed schemas, models, invariants, trajectory tracking, and pre-signing execution gate.
 """
 
 from .models import (
@@ -12,6 +12,15 @@ from .models import (
     DecisionReceipt,
     canonical_hash,
 )
+from .invariants import (
+    InvariantId,
+    InvariantResult,
+    evaluate_invariants,
+)
+from .executor import (
+    ExecutionAdapter,
+    ChainBreakExecutor,
+)
 
 __all__ = [
     "Decision",
@@ -21,4 +30,9 @@ __all__ = [
     "TrajectoryState",
     "DecisionReceipt",
     "canonical_hash",
+    "InvariantId",
+    "InvariantResult",
+    "evaluate_invariants",
+    "ExecutionAdapter",
+    "ChainBreakExecutor",
 ]

@@ -2,10 +2,10 @@
 
 ## Current Position
 
-Phase: 03-invariant-engine
+Phase: 05-agent-simulator-and-mutation-attacks
 Plan: 01
-Status: Phase 1 (Strict Web3 Models) and Phase 2 (Deterministic EVM Decoder) verified & completed. Ready for Phase 3.
-Last activity: 2026-09-25 — Phase 1 & 2 executed, 62/62 tests passing.
+Status: Phase 1 through 4 (Models, Decoder, Invariant Engine, Pre-Signing Execution Gate) verified & completed. Ready for Phase 5.
+Last activity: 2026-09-25 — Phase 3 & 4 executed, 75/75 tests passing.
 
 ## Current Milestone: v2.0 ChainBreak-Web3
 - **Goal:** Provider-agnostic deterministic intent-integrity firewall for autonomous EVM agents.
