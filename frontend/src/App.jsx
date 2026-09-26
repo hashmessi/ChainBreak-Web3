@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Compass, Play, AlertCircle, ArrowUpRight, BarChart2, Layers, Shield,
-  GitCompare, Zap, CheckCircle2, AlertTriangle, Radio, RefreshCw, Cpu
+  Shield, Layers, GitCompare,
+  AlertCircle, Play
 } from 'lucide-react';
-import IntentPanel from './components/IntentPanel';
-import TransactionCard from './components/TransactionCard';
-import TrajectoryTimeline from './components/TrajectoryTimeline';
-import DecisionReceipt from './components/DecisionReceipt';
+import ScenarioSelector from './components/ScenarioSelector';
+import ArchitectureBrief from './components/ArchitectureBrief';
+import AiSummaryBot from './components/AiSummaryBot';
+import BenchmarkModal from './components/BenchmarkModal';
+import RunTimeline from './components/RunTimeline';
 import CounterfactualProof from './components/CounterfactualProof';
-import EvaluationPanel from './components/EvaluationPanel';
 
 const TABS = [
-  { key: 'pipeline', label: 'Operator Pipeline', icon: Layers },
-  { key: 'counterfactual', label: 'Counterfactual Proof', icon: GitCompare },
-  { key: 'benchmark', label: 'Adversarial Benchmarks (12)', icon: BarChart2 },
+  { key: 'scenarios', label: 'Scenarios', icon: Shield, badgeKey: 'scenariosCount' },
+  { key: 'pipeline', label: 'Interception', icon: Layers, badgeKey: 'stepCount' },
+  { key: 'counterfactual', label: 'Proof', icon: GitCompare, badgeKey: 'proofReady' },
 ];
 
 export default function App() {
@@ -35,7 +35,15 @@ export default function App() {
   const [runError, setRunError] = useState(null);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState('pipeline');
+  const [activeTab, setActiveTab] = useState('scenarios');
+
+  // Benchmark Modal State
+  const [isBenchmarkModalOpen, setIsBenchmarkModalOpen] = useState(false);
+  const [benchmarkReport, setBenchmarkReport] = useState(null);
+  const [isBenchmarkLoading, setIsBenchmarkLoading] = useState(false);
+
+  // AI Summary Bot Drawer Open State
+  const [isAiBotOpen, setIsAiBotOpen] = useState(false);
 
   // Load scenarios & fixtures on mount
   useEffect(() => {
@@ -54,11 +62,11 @@ export default function App() {
           if (mounted) {
             const scens = scenData.scenarios || [];
             setScenarios(scens);
-            // Default to W3 Flagship attack for immediate judge impact
+            // Default to W3 Flagship attack
             const initial = scens.find((s) => s.id === 'W3') || scens[0];
             setSelectedScenario(initial);
 
-            // Pre-load counterfactual proof for default flagship so Proof tab is instantly primed
+            // Pre-load counterfactual proof for default flagship so Proof tab is primed
             if (initial) {
               fetch('/api/v2/counterfactual', {
                 method: 'POST',
@@ -94,6 +102,33 @@ export default function App() {
     loadData();
     return () => { mounted = false; };
   }, []);
+
+  // Fetch benchmark evaluation report for modal
+  const fetchBenchmarkReport = async () => {
+    setIsBenchmarkLoading(true);
+    try {
+      const res = await fetch('/api/v2/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ substrate: activeSubstrate }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBenchmarkReport(data);
+      }
+    } catch (err) {
+      console.error('Benchmark fetch failed:', err);
+    } finally {
+      setIsBenchmarkLoading(false);
+    }
+  };
+
+  const handleOpenBenchmarkModal = () => {
+    setIsBenchmarkModalOpen(true);
+    if (!benchmarkReport) {
+      fetchBenchmarkReport();
+    }
+  };
 
   // Safe scenario selector helper
   const handleSelectScenario = (scenario) => {
@@ -160,6 +195,7 @@ export default function App() {
       const proof = await res.json();
       setCounterfactualResult(proof);
       setActiveTab('counterfactual');
+      setIsAiBotOpen(true); // Open AI summary drawer automatically upon proof run
     } catch (err) {
       console.error('Counterfactual failed:', err);
       setRunError(err.message);
@@ -175,253 +211,49 @@ export default function App() {
     }
   }, [selectedScenario?.id, activeRunMode, activeSubstrate]);
 
-  const activeProposal = selectedScenario?.proposals?.[activeStepIndex] || selectedScenario?.proposals?.[0];
-  const activeReceipt = runReport?.receipts?.[activeStepIndex] || runReport?.receipts?.[0];
-  const isAttack = selectedScenario?.category === 'attack';
+  const flagshipScenario = scenarios.find((s) => s.id === 'W3') || scenarios[0];
+  const stepCount = selectedScenario?.proposals?.length || selectedScenario?.actions?.length || 1;
 
   return (
     <div className="app-canvas min-h-screen bg-obsidian text-chalk-soft font-sans">
-      {/* Top Navigation Header */}
-      <header className="sticky top-0 z-50 bg-carbon/95 backdrop-blur border-b border-graphite px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          {/* Logo & Tagline */}
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-compass-gold/10 border border-compass-gold/40 flex items-center justify-center text-compass-gold font-bold">
-              ⚡
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-heading-sm tracking-tight text-chalk">ChainBreak-Web3</span>
-                <span className="text-meta font-mono px-2 py-0.5 rounded bg-compass-gold/15 text-compass-gold border border-compass-gold/30">
-                  EVM Firewall v2.0
-                </span>
+      {/* ====================================================================
+          Top Navigation Header — Exactly Matching Reference Screenshots 1, 2, 3
+          Clean, uncluttered, no redundant mode toggles in master header
+          ==================================================================== */}
+      <header className="top-nav">
+        <div className="cockpit-container top-nav-inner">
+          {/* Brand Cluster */}
+          <div className="brand-cluster">
+            <div className="brand-mark" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('scenarios')}>
+              <div className="brand-symbol">
+                {/* Clean SVG brand symbol (ChainBreak shield/hexagon) */}
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2L3 7V13C3 18.5 7 21.6 12 22.8C17 21.6 21 18.5 21 13V7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M12 7V17M7 12H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+                </svg>
               </div>
-              <p className="text-meta text-ash">
-                Provider-Agnostic Intent-Integrity Gateway for Autonomous EVM Agents
-              </p>
+              <span>ChainBreak</span>
+            </div>
+            <div className="brand-subtitle">
+              RUNTIME SECURITY INVARIANT ENGINE
             </div>
           </div>
 
-          {/* Substrate & Controls */}
-          <div className="flex items-center gap-3">
-            {/* Substrate Selector */}
-            <div className="flex items-center bg-obsidian border border-graphite rounded-lg p-0.5 text-caption font-mono">
-              <button
-                type="button"
-                onClick={() => setActiveSubstrate('LOCAL')}
-                className={`px-3 py-1 rounded font-medium transition-all ${
-                  activeSubstrate === 'LOCAL'
-                    ? 'bg-carbon text-chalk shadow-sm border border-graphite'
-                    : 'text-smoke hover:text-chalk'
-                }`}
-              >
-                Local EVM
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveSubstrate('TESTNET')}
-                className={`px-3 py-1 rounded font-medium transition-all ${
-                  activeSubstrate === 'TESTNET'
-                    ? 'bg-carbon text-compass-gold shadow-sm border border-compass-gold/30'
-                    : 'text-smoke hover:text-chalk'
-                }`}
-              >
-                Sepolia Testnet
-              </button>
+          {/* Right Header Navigation & Actions */}
+          <div className="nav-actions">
+            {/* Live Engine Status Pill */}
+            <div className="badge-pill" title="Deterministic Invariant Engine Status">
+              <span className={`pulse-dot ${health?.status === 'ok' ? '' : 'error'}`} />
+              <span>{health?.status === 'ok' ? 'ENGINE LIVE / 8000' : 'ENGINE OFFLINE'}</span>
             </div>
 
-            {/* Run Mode Selector */}
-            <div className="flex items-center bg-obsidian border border-graphite rounded-lg p-0.5 text-caption font-mono">
-              <button
-                type="button"
-                onClick={() => setActiveRunMode('PROTECTED')}
-                className={`px-3 py-1 rounded font-semibold transition-all ${
-                  activeRunMode === 'PROTECTED'
-                    ? 'bg-pulse-green/20 text-pulse-green border border-pulse-green/40'
-                    : 'text-smoke hover:text-chalk'
-                }`}
-              >
-                Protected (Gate Active)
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveRunMode('BASELINE')}
-                className={`px-3 py-1 rounded font-semibold transition-all ${
-                  activeRunMode === 'BASELINE'
-                    ? 'bg-violation-red/20 text-violation-red border border-violation-red/40'
-                    : 'text-smoke hover:text-chalk'
-                }`}
-              >
-                Baseline (Unprotected)
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        {/* Quick Launchpad / Flagship Attack Bar */}
-        <div className="bg-card-bg border border-graphite rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-compass-gold" />
-            <span className="text-caption font-bold text-chalk uppercase tracking-wider font-mono">
-              Flagship Benchmarks:
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const s = scenarios.find((x) => x.id === 'W3');
-                if (s) handleSelectScenario(s);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-caption font-mono font-bold border transition-all ${
-                selectedScenario?.id === 'W3'
-                  ? 'bg-violation-red/20 border-violation-red text-violation-red ring-1 ring-violation-red'
-                  : 'bg-carbon border-graphite text-smoke hover:text-chalk hover:border-iron'
-              }`}
-            >
-              W3: Flagship Attack (Alice → Mallory)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                const s = scenarios.find((x) => x.id === 'W5');
-                if (s) handleSelectScenario(s);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-caption font-mono font-bold border transition-all ${
-                selectedScenario?.id === 'W5'
-                  ? 'bg-compass-gold/20 border-compass-gold text-compass-gold ring-1 ring-compass-gold'
-                  : 'bg-carbon border-graphite text-smoke hover:text-chalk hover:border-iron'
-              }`}
-            >
-              W5: Trajectory Budget Breach (40 + 50 + 30 &gt; 100)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                const s = scenarios.find((x) => x.id === 'W2');
-                if (s) handleSelectScenario(s);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-caption font-mono font-bold border transition-all ${
-                selectedScenario?.id === 'W2'
-                  ? 'bg-pulse-green/20 border-pulse-green text-pulse-green ring-1 ring-pulse-green'
-                  : 'bg-carbon border-graphite text-smoke hover:text-chalk hover:border-iron'
-              }`}
-            >
-              W2: Safe ERC-20 (Invoice INV-14)
-            </button>
-
-            {/* Scenario dropdown */}
-            <select
-              value={selectedScenario?.id || ''}
-              onChange={(e) => {
-                const s = scenarios.find((x) => x.id === e.target.value);
-                if (s) handleSelectScenario(s);
-              }}
-              className="bg-carbon border border-graphite rounded-lg px-3 py-1.5 text-caption font-mono text-chalk focus:outline-none focus:border-compass-gold"
-            >
-              {scenarios.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.id}: {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={isRunning}
-              onClick={() => handleExecuteCounterfactual(selectedScenario, activeSubstrate)}
-              className="flex items-center gap-1.5 bg-compass-gold hover:bg-compass-gold-dim text-obsidian font-bold px-4 py-2 rounded-lg text-caption transition-all shadow"
-            >
-              <GitCompare className="w-4 h-4" />
-              <span>Run Counterfactual Proof</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Tab Header */}
-        <div className="flex items-center gap-4 border-b border-graphite pb-2">
-          {TABS.map((t) => {
-            const Icon = t.icon;
-            const isActive = activeTab === t.key;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setActiveTab(t.key)}
-                className={`flex items-center gap-2 pb-2 text-caption font-semibold transition-all border-b-2 ${
-                  isActive
-                    ? 'border-compass-gold text-chalk'
-                    : 'border-transparent text-ash hover:text-smoke'
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-compass-gold' : 'text-ash'}`} />
-                <span>{t.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Error Banner if any */}
-        {runError && (
-          <div className="bg-violation-red/10 border border-violation-red/40 rounded-xl p-4 flex items-center gap-3 text-caption text-violation-red font-mono">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <span>{runError}</span>
-          </div>
-        )}
-
-        {/* Tab 1: Pipeline View */}
-        {activeTab === 'pipeline' && (
-          <div className="space-y-6">
-            {/* Top: Intent Panel */}
-            <IntentPanel
-              intent={selectedScenario?.intent}
-              fixtures={fixtures}
-            />
-
-            {/* Middle: Trajectory Timeline (if multi-step) */}
-            {runReport?.receipts?.length > 1 && (
-              <TrajectoryTimeline
-                receipts={runReport.receipts}
-                maxSessionValue={selectedScenario?.intent?.max_session_value_per_asset?.USDC || 100000000}
-                activeStepIndex={activeStepIndex}
-                onSelectStep={(idx) => setActiveStepIndex(idx)}
-              />
-            )}
-
-            {/* Bottom Grid: Transaction Card & Decision Receipt */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                <TransactionCard
-                  proposal={activeProposal}
-                  decoded={activeReceipt?.decoded}
-                  stepIndex={activeStepIndex}
-                  isAttacking={isAttack}
-                />
-              </div>
-
-              <div>
-                <DecisionReceipt
-                  receipt={activeReceipt}
-                  substrate={activeSubstrate}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 2: Counterfactual Proof View */}
-        {activeTab === 'counterfactual' && (
-          <div>
-            <CounterfactualProof
+            {/* AI Summary Assistant Robot Button */}
+            <AiSummaryBot
+              runReport={runReport}
               counterfactualResult={counterfactualResult}
+              selectedScenario={selectedScenario}
+              isOpen={isAiBotOpen}
+              onToggle={setIsAiBotOpen}
               onRunFeatured={(id) => {
                 const s = scenarios.find((x) => x.id === id);
                 if (s) {
@@ -430,32 +262,200 @@ export default function App() {
                 }
               }}
             />
-          </div>
-        )}
 
-        {/* Tab 3: Adversarial Benchmark Suite (EVAL-03) */}
-        {activeTab === 'benchmark' && (
-          <div>
-            <EvaluationPanel
-              substrate={activeSubstrate}
-              onSelectScenario={(id) => {
-                const s = scenarios.find((x) => x.id === id);
-                if (s) {
-                  handleSelectScenario(s);
-                  setActiveTab('pipeline');
-                }
-              }}
-              onRunCounterfactual={(id) => {
-                const s = scenarios.find((x) => x.id === id);
-                if (s) {
-                  handleSelectScenario(s);
-                  handleExecuteCounterfactual(s, activeSubstrate);
-                }
-              }}
-            />
+            {/* Benchmark Modal Trigger (Pure Signal White Pill CTA) */}
+            <button
+              type="button"
+              className="btn-pill-primary"
+              onClick={handleOpenBenchmarkModal}
+              id="btn-open-benchmark"
+            >
+              <span>BENCHMARK ↗</span>
+            </button>
           </div>
-        )}
+        </div>
+      </header>
+
+      {/* ====================================================================
+          Tab Bar Navigation — Sticky Under Header
+          ==================================================================== */}
+      <nav className="tab-bar">
+        <div className="cockpit-container tab-bar-inner">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`tab-btn ${isActive ? 'active' : ''}`}
+                id={`tab-${tab.key}`}
+              >
+                <Icon size={14} style={{ color: isActive ? 'var(--color-chalk)' : 'inherit' }} />
+                <span>{tab.label}</span>
+                {tab.badgeKey === 'scenariosCount' && (
+                  <span className="tab-badge">{scenarios.length || 12}</span>
+                )}
+                {tab.badgeKey === 'stepCount' && (
+                  <span className="tab-badge">{stepCount}</span>
+                )}
+                {tab.badgeKey === 'proofReady' && (
+                  <span className="tab-badge proof-ready">
+                    {counterfactualResult ? 'PROVED' : 'READY'}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* ====================================================================
+          Main Cockpit Container
+          ==================================================================== */}
+      <main className="view-content">
+        <div className="cockpit-container">
+          {/* Global Error Banner */}
+          {runError && (
+            <div className="run-error-banner flex items-center gap-3">
+              <AlertCircle size={16} className="flex-shrink-0" />
+              <span>{runError}</span>
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────────────────────────────
+              TAB 1: SCENARIOS (The Home Cockpit View matching v1 screenshot)
+              ────────────────────────────────────────────────────────────────── */}
+          {activeTab === 'scenarios' && (
+            <div>
+              {/* Compact Editorial Hero */}
+              <div className="compact-hero">
+                <h1>Runtime security invariants for autonomous agents.</h1>
+                <p>
+                  Select a scenario to run side-by-side counterfactual execution — Baseline vs Protected.
+                </p>
+              </div>
+
+              {/* Flagship Demo Hero Card */}
+              {flagshipScenario && (
+                <div className="flagship-demo-banner" id="flagship-hero-banner">
+                  <div className="flagship-badge-group">
+                    <span className="flagship-pill">FLAGSHIP DEMO</span>
+                    <span className="flagship-tag">{flagshipScenario.id}</span>
+                  </div>
+
+                  <div className="flagship-content">
+                    <div className="flagship-info">
+                      <h3 className="flagship-title">
+                        {flagshipScenario.name}
+                      </h3>
+                      <p className="flagship-description">
+                        {flagshipScenario.description ||
+                          'Compromised agent mutates recipient in raw calldata from Alice to Mallory. Single-action perimeter firewalls permit the transaction. ChainBreak decodes raw EVM calldata and halts pre-signing.'}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn-flagship-launch"
+                      disabled={isRunning}
+                      onClick={() => {
+                        handleSelectScenario(flagshipScenario);
+                        handleExecuteCounterfactual(flagshipScenario, activeSubstrate);
+                      }}
+                      id="btn-run-flagship-proof"
+                    >
+                      <Play size={12} fill="currentColor" />
+                      <span>RUN {flagshipScenario.id} DUAL PROOF</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Architectural Specification & Comparison Matrix */}
+              <ArchitectureBrief />
+
+              {/* Full Scenario Deck Grid with Category Filtering */}
+              <ScenarioSelector
+                scenarios={scenarios}
+                selectedScenario={selectedScenario}
+                onSelectScenario={handleSelectScenario}
+                onInspectScenario={(scen) => {
+                  handleSelectScenario(scen);
+                  setActiveTab('pipeline');
+                }}
+                onRunCounterfactual={(id) => {
+                  const s = scenarios.find((x) => x.id === id);
+                  if (s) {
+                    handleSelectScenario(s);
+                    handleExecuteCounterfactual(s, activeSubstrate);
+                  }
+                }}
+                isLoading={isRunning}
+              />
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────────────────────────────
+              TAB 2: INTERCEPTION (Operator Timeline matching Screenshots 1 & 2)
+              ────────────────────────────────────────────────────────────────── */}
+          {activeTab === 'pipeline' && (
+            <div>
+              <RunTimeline
+                chainState={runReport}
+                scenario={selectedScenario}
+                scenarioId={selectedScenario?.id || ''}
+                runMode={activeRunMode}
+                onModeToggle={(mode) => setActiveRunMode(mode)}
+                isCounterfactualAvailable={!!counterfactualResult}
+                divergenceStep={counterfactualResult?.divergence_step}
+                onRunFeatured={(id) => {
+                  const s = scenarios.find((x) => x.id === id);
+                  if (s) {
+                    handleSelectScenario(s);
+                    handleExecuteCounterfactual(s, activeSubstrate);
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────────────────────────────
+              TAB 3: PROOF (Counterfactual Divergence matching Screenshot 3)
+              ────────────────────────────────────────────────────────────────── */}
+          {activeTab === 'counterfactual' && (
+            <div>
+              <CounterfactualProof
+                counterfactualResult={counterfactualResult}
+                selectedScenario={selectedScenario}
+                onRunAgain={(id) => {
+                  const s = scenarios.find((x) => x.id === id) || selectedScenario;
+                  if (s) handleExecuteCounterfactual(s, activeSubstrate);
+                }}
+                onRunFeatured={(id) => {
+                  const s = scenarios.find((x) => x.id === id);
+                  if (s) {
+                    handleSelectScenario(s);
+                    handleExecuteCounterfactual(s, activeSubstrate);
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
       </main>
+
+      {/* ====================================================================
+          Benchmark Report Modal — Triggered from Top Bar "BENCHMARK ↗"
+          ==================================================================== */}
+      <BenchmarkModal
+        isOpen={isBenchmarkModalOpen}
+        onClose={() => setIsBenchmarkModalOpen(false)}
+        report={benchmarkReport}
+        isLoading={isBenchmarkLoading}
+        onRunBenchmark={fetchBenchmarkReport}
+      />
     </div>
   );
 }

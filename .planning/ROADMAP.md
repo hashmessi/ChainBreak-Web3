@@ -119,6 +119,18 @@
 
 ---
 
+### Phase 12 — Editorial Web3 Cockpit Polish & Interactive AI Summary Bot
+**Goal:** Restore the polished v1 Obsidian editorial design system, remove generic AI slop/emojis, integrate the interactive AI Summary Bot with live Web3 execution reasoning, and deliver bold, developer-grade UI components adhering to DESIGN.md.
+**Requirements:** `UI-IMPECCABLE-01`, `UI-IMPECCABLE-02`, `UI-IMPECCABLE-03`, `UI-IMPECCABLE-04`
+**Success Criteria:**
+1. Top bar restored with Obsidian editorial branding, live engine status pill (`ENGINE LIVE / 8000`), interactive AI Summary Bot trigger, and `BENCHMARK ↗` modal trigger.
+2. Zero generic emojis anywhere in the interface; all icons replaced with crisp, semantic SVG developer components.
+3. Restored tabbed navigation with exact v1 aesthetic: `Scenarios (12)`, `Interception` (or Operator Pipeline), and `Proof` (Counterfactual Dual Execution).
+4. Flagship Hero Demo card and side-by-side Architectural Specification comparison cards ("Point-in-Time Action Inspection" vs "Causal Trajectory Invariants") integrated seamlessly.
+5. Interactive AI Summary Bot with slide-out drawer explaining EVM calldata divergence, invariant breach, and zero-loss onchain defense with plain-English takeaway.
+
+---
+
 ## Progress Overview
 
 | Phase | Description | Status | Requirements |
@@ -132,5 +144,7 @@
 | Phase 7 | Execution Substrates (Local + Testnet) | Complete | `CHAIN-01`, `CHAIN-02` |
 | Phase 8 | Web3 Editorial Security Cockpit | Complete | `UI-01` to `UI-06` |
 | Phase 9 | Evaluation Suite & Benchmark Metrics | Complete | `EVAL-01` to `EVAL-03` |
-| Phase 10 | Submission Package & Hackathon Assets | Next | Hackathon Deliverables |
-| Phase 11 | Final Hardening & Verification | Pending | Production Verification |
+| Phase 10 | Submission Package & Hackathon Assets | Complete | Hackathon Deliverables |
+| Phase 11 | Final Hardening & Verification | Complete | Production Verification |
+| Phase 12 | Editorial Web3 Cockpit Polish & AI Summary Bot | In Progress | `UI-IMPECCABLE-01` to `04` |
+

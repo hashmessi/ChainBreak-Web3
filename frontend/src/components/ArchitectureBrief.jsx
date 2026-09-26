@@ -1,23 +1,24 @@
 import React, { useState } from 'react';
-import { ShieldAlert, ShieldCheck, Code, Cpu, ArrowRight, Zap, Copy, Check } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, Code, Cpu, ArrowRight, Zap, Copy, Check, X } from 'lucide-react';
 
 export default function ArchitectureBrief() {
   const [activeView, setActiveView] = useState('contrast'); // 'contrast' | 'sdk'
   const [copied, setCopied] = useState(false);
 
-  const sdkCode = `# Install: pip install chainbreak
-from chainbreak import ChainBreakRuntime, InvariantBreach
+  const sdkCode = `# Install: pip install chainbreak-web3
+from chainbreak import ChainBreakExecutor, IntentEnvelope, InvariantBreach
 
-runtime = ChainBreakRuntime(policy="strict")
+# Initialize deterministic invariant firewall
+executor = ChainBreakExecutor(policy="strict")
 
-# Drop-in interceptor hook for LangChain / CrewAI / Swarm tool loops
-@agent.on_tool_call
-async def enforce_trajectory_invariants(tool_call, context):
-    decision = await runtime.evaluate_trajectory(tool_call, context)
-    if decision.status == "BLOCK":
-        # Trajectory halted before socket execution: zero network egress
-        raise InvariantBreach(decision.violation, lineage=decision.antecedents)
-    return await tool_call.execute()`;
+# Pre-signing gate wrapper for autonomous EVM agent loops
+@agent.on_transaction_proposal
+async def enforce_evm_intent_integrity(proposal, intent: IntentEnvelope):
+    receipt = await executor.evaluate_and_execute(proposal, intent)
+    if receipt.decision != "ALLOW":
+        # Blocked pre-signing: zero onchain gas burned, zero assets lost
+        raise InvariantBreach(receipt.violated_invariants, receipt.reason)
+    return receipt.transaction_hash`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(sdkCode);
@@ -65,21 +66,27 @@ async def enforce_trajectory_invariants(tool_call, context):
             </div>
             <div className="col-points">
               <div className="col-point-item">
-                <span className="bullet-indicator danger">✕</span>
+                <span className="bullet-indicator danger" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <X size={13} />
+                </span>
                 <div>
                   <strong>Zero Stateful Lineage:</strong> Evaluates tool calls in strict isolation. Reads, syntheses, and exports are all individually approved.
                 </div>
               </div>
               <div className="col-point-item">
-                <span className="bullet-indicator danger">✕</span>
+                <span className="bullet-indicator danger" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <X size={13} />
+                </span>
                 <div>
-                  <strong>Blind to Trajectory Escalation:</strong> In Scenario S6, 4/4 benign actions pass security checks. Exfiltration succeeds undetected.
+                  <strong>Blind to Trajectory Escalation:</strong> In multi-step sequences (e.g. W5), benign transfers pass security checks. Cumulative budget drain succeeds undetected.
                 </div>
               </div>
               <div className="col-point-item">
-                <span className="bullet-indicator danger">✕</span>
+                <span className="bullet-indicator danger" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <X size={13} />
+                </span>
                 <div>
-                  <strong>High Latency Penalty:</strong> Re-querying LLM-as-a-judge on every single step adds 1.5s–3.0s per tool call.
+                  <strong>High Latency Penalty:</strong> Re-querying LLM-as-a-judge on every single transaction adds 1.5s–3.0s latency.
                 </div>
               </div>
             </div>
@@ -97,26 +104,32 @@ async def enforce_trajectory_invariants(tool_call, context):
             </div>
             <div className="col-points">
               <div className="col-point-item">
-                <span className="bullet-indicator success">✓</span>
+                <span className="bullet-indicator success" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <Check size={13} />
+                </span>
                 <div>
-                  <strong>Stateful Causal Provenance:</strong> Tracks lineage across the full chain (<code>triggered_by: [1, 2, 3]</code>) from origin to egress.
+                  <strong>Stateful Causal Provenance:</strong> Tracks lineage across the full chain (calldata parameters, cumulative budgets) from intent to signing.
                 </div>
               </div>
               <div className="col-point-item">
-                <span className="bullet-indicator success">✓</span>
+                <span className="bullet-indicator success" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <Check size={13} />
+                </span>
                 <div>
-                  <strong>Deterministic Invariant Interception:</strong> Pure Python invariant logic halts at Step 04 before socket transmission. Zero bytes egress.
+                  <strong>Deterministic Invariant Interception:</strong> Pure Python invariant logic halts before wallet signing. Zero bytes, zero gas egress.
                 </div>
               </div>
               <div className="col-point-item">
-                <span className="bullet-indicator success">✓</span>
+                <span className="bullet-indicator success" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <Check size={13} />
+                </span>
                 <div>
-                  <strong>Sub-Millisecond Overhead:</strong> Mean evaluation latency is &lt; 0.15ms. Zero noticeable latency on agent trajectories.
+                  <strong>Sub-Millisecond Overhead:</strong> Mean evaluation latency is &lt; 0.15ms. Zero noticeable latency on agent workflows.
                 </div>
               </div>
             </div>
             <div className="col-footer-verdict success">
-              PREVENTION RATE ON S6 ATTACK: 100% (ZERO EGRESS)
+              PREVENTION RATE ON ATTACKS: 100% (ZERO EGRESS)
             </div>
           </div>
         </div>
@@ -127,9 +140,9 @@ async def enforce_trajectory_invariants(tool_call, context):
         <div className="arch-sdk-view">
           <div className="sdk-header">
             <div>
-              <h4 className="sdk-title">Universal Agent Interceptor Middleware</h4>
+              <h4 className="sdk-title">Deterministic EVM Pre-Signing Firewall</h4>
               <p className="sdk-desc">
-                Drops directly into LangChain, CrewAI, AutoGen, or OpenAI Swarm runtime loops with zero architectural rewrites.
+                Drops directly between autonomous agent decision loops and wallet signing functions with zero architectural rewrites.
               </p>
             </div>
             <button

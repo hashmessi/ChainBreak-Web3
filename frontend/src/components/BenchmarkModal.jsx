@@ -19,9 +19,9 @@ export default function BenchmarkModal({
             <div className="badge-pill" style={{ padding: '2px 8px' }}>
               <span style={{ color: 'var(--color-compass-gold)' }}>VERIFICATION SUITE</span>
             </div>
-            <h2 className="modal-title">20-Scenario Security Benchmark Report</h2>
+            <h2 className="modal-title">{report?.total_scenarios || 12}-Scenario Security Benchmark Report</h2>
             <p className="modal-subtitle">
-              Comprehensive counterfactual evaluation of attack neutralization, false positive rate, and fail-closed integrity.
+              Comprehensive counterfactual evaluation of attack neutralization, false positive rate, and fail-closed EVM intent integrity.
             </p>
           </div>
           <button type="button" className="modal-close-btn" onClick={onClose} id="btn-close-modal">
@@ -176,7 +176,7 @@ export default function BenchmarkModal({
         {/* Modal Footer */}
         <div className="modal-footer">
           <div className="footer-meta">
-            <span>SUITE V1.0 • 20 SCENARIOS • FAILING-CLOSED DETERMINISTIC ENGINE</span>
+            <span>SUITE V2.0 • {report?.total_scenarios || 12} EVM SCENARIOS • DETERMINISTIC INVARIANT ENGINE</span>
           </div>
           <div className="footer-actions">
             <button
@@ -187,7 +187,7 @@ export default function BenchmarkModal({
               id="btn-trigger-benchmark-run"
             >
               <RefreshCw size={13} className={isLoading ? 'spin-icon' : ''} />
-              <span>{isLoading ? 'EVALUATING...' : 'RERUN ALL 20 SCENARIOS'}</span>
+              <span>{isLoading ? 'EVALUATING...' : `RERUN ALL ${report?.total_scenarios || 12} SCENARIOS`}</span>
             </button>
           </div>
         </div>

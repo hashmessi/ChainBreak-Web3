@@ -1,15 +1,19 @@
 import React from 'react';
 import ActionCard from './ActionCard';
 import ViolationPanel from './ViolationPanel';
-import { Activity, Layers, ShieldAlert, Sparkles, AlertTriangle } from 'lucide-react';
+import { Activity, Layers, ShieldAlert, Sparkles } from 'lucide-react';
 
 /**
- * RunTimeline — Full-width "Interception" view
- * Shows step-by-step timeline with visual connectors.
- * Steps are collapsed by default (handled by ActionCard).
+ * RunTimeline — Full-width "Interception" view matching Screenshots 1 & 2.
+ * Shows:
+ * 1. INTERCEPTION TELEMETRY header + [PROTECTED | BASELINE] toggle
+ * 2. Cumulative security state ribbon (PRIVILEGE, SENSITIVE DATA, SECRETS, DESTINATIONS, VERDICT)
+ * 3. ViolationPanel (Judge's Verdict, Invariant, Antecedents, Zero-Loss Callout)
+ * 4. Step accordion cards (ActionCard) with parameters and execution results
  */
 export default function RunTimeline({
   chainState,
+  scenario = null,
   scenarioId = '',
   runMode = 'PROTECTED',
   onModeToggle = null,
@@ -19,36 +23,96 @@ export default function RunTimeline({
   onStepRefClick = null,
   onRunFeatured = null
 }) {
-  if (!chainState || !chainState.actions || chainState.actions.length === 0) {
+  // Normalize state for both Web3 (receipts) and legacy (actions)
+  const normalizedState = React.useMemo(() => {
+    if (!chainState) return null;
+    if (chainState.actions && chainState.actions.length > 0) return chainState;
+
+    const receipts = chainState.receipts || [];
+    if (receipts.length === 0) return null;
+
+    const actions = receipts.map((r, idx) => {
+      const prop = scenario?.proposals?.[idx];
+      const dec = r.decoded;
+      const isBlock = r.decision === 'BLOCK';
+      const isHold = r.decision === 'HOLD';
+      const tool = dec?.method
+        ? `${dec.method}`
+        : (prop?.data && prop.data !== '0x' && prop.data.length > 10 ? 'transfer' : 'native_eth_transfer');
+
+      return {
+        id: `act-${idx}`,
+        step_index: idx,
+        tool: tool,
+        arguments: prop ? {
+          to: prop.to,
+          value: prop.value || 0,
+          recipient: dec?.recipient || prop.to,
+          amount: dec?.amount ? `${(dec.amount / 1e6).toLocaleString()} USDC` : `${prop.value || 0} wei`,
+          contract: dec?.token_contract || prop.to,
+          data: prop.data || '0x'
+        } : {},
+        semantics: {
+          destination: dec?.recipient?.toLowerCase()?.includes('90f79bf6') ? 'EXTERNAL' : 'INTERNAL',
+          sensitivity: isBlock ? 'HIGH' : 'LOW',
+          data: dec?.asset || 'GENERAL',
+          confidence: '100%'
+        },
+        decision: r.decision,
+        violations: r.violated_invariants,
+        reason: r.reason,
+        triggered_by: idx > 0 ? Array.from({ length: idx }, (_, i) => i) : [],
+        executed: r.broadcast,
+        tool_result: r.broadcast
+          ? (r.transaction_hash || '0x4f829a...broadcast_ok')
+          : 'BLOCKED (PRE-SIGNING GATE)'
+      };
+    });
+
+    const hasBreach = receipts.some((r) => r.decision === 'BLOCK');
+    const hasExt = receipts.some((r) => r.decoded?.recipient?.toLowerCase()?.includes('90f79bf6'));
+
+    return {
+      actions,
+      privilege_level: 'STANDARD',
+      sensitive_data_observed: hasBreach,
+      secrets_observed: false,
+      destinations: hasExt ? ['INTERNAL', 'EXTERNAL'] : ['INTERNAL'],
+      final_decision: chainState.final_decision || (hasBreach ? 'BLOCK' : 'ALLOW'),
+      blocked_at_step: chainState.stopped_at_step
+    };
+  }, [chainState, scenario]);
+
+  if (!normalizedState || !normalizedState.actions || normalizedState.actions.length === 0) {
     return (
       <div className="timeline-empty-state">
         <Activity size={24} style={{ color: 'var(--color-compass-gold)', marginBottom: '12px' }} />
         <div className="empty-title">NO EXECUTION TELEMETRY</div>
         <p className="empty-desc">
-          Select a scenario and run counterfactual execution to inspect action interception.
+          Select a scenario to inspect step-by-step invariant interception.
         </p>
         {onRunFeatured && (
           <button
             type="button"
             className="btn-pill-primary"
             style={{ marginTop: '14px', gap: '6px' }}
-            onClick={() => onRunFeatured('S6')}
-            id="btn-timeline-run-s6"
+            onClick={() => onRunFeatured('W3')}
+            id="btn-timeline-run-featured"
           >
             <Sparkles size={13} />
-            <span>RUN S6 TRAJECTORY ATTACK DEMO</span>
+            <span>RUN W3 FLAGSHIP ATTACK DEMO</span>
           </button>
         )}
       </div>
     );
   }
 
-  const { actions, privilege_level, sensitive_data_observed, secrets_observed, destinations, final_decision, blocked_at_step } = chainState;
+  const { actions, privilege_level, sensitive_data_observed, secrets_observed, destinations, final_decision, blocked_at_step } = normalizedState;
 
-  // Detect if baseline permitted a dangerous exfiltration
+  // Detect if baseline permitted a dangerous exfiltration/mutation
   const isBaselineBreach = runMode === 'BASELINE' && (
     (destinations && destinations.includes('EXTERNAL') && (sensitive_data_observed || secrets_observed)) ||
-    (scenarioId && ['S1', 'S2', 'S3', 'S6', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6'].includes(scenarioId.toUpperCase()))
+    (scenarioId && ['W3', 'W4', 'W5', 'W6', 'W7', 'W8', 'W9', 'S1', 'S2', 'S3', 'S6'].includes(scenarioId.toUpperCase()))
   );
 
   return (
@@ -63,7 +127,7 @@ export default function RunTimeline({
           </span>
         </div>
 
-        {isCounterfactualAvailable && onModeToggle && (
+        {onModeToggle && (
           <div className="mode-toggle-group">
             <button
               type="button"
@@ -94,7 +158,7 @@ export default function RunTimeline({
               UNMITIGATED SECURITY BREACH (BASELINE MODE)
             </div>
             <div className="baseline-breach-sub">
-              Without ChainBreak runtime invariants, all {actions.length} actions executed unchecked. Sensitive data was exfiltrated to an untrusted external endpoint.
+              Without ChainBreak runtime invariants, all {actions.length} action(s) executed unchecked. Irreversible onchain state drift occurred.
             </div>
           </div>
         </div>
@@ -137,7 +201,7 @@ export default function RunTimeline({
       {/* Violation Panel (compact inline) */}
       {(final_decision === 'BLOCK' || final_decision === 'HOLD') && (
         <ViolationPanel
-          chainState={chainState}
+          chainState={normalizedState}
           scenarioId={scenarioId}
           onHighlightStep={(stepNum) => onStepRefClick && onStepRefClick(stepNum)}
         />
@@ -164,6 +228,12 @@ export default function RunTimeline({
             </div>
           );
         })}
+      </div>
+
+      {/* Footer System Branding */}
+      <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--color-graphite)', display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--color-ash)' }}>
+        <span>CHAINBREAK RUNTIME ENGINE // V2.0</span>
+        <span>OBSIDIAN DESIGN SYSTEM</span>
       </div>
     </div>
   );

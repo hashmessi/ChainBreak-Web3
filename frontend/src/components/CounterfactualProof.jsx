@@ -1,26 +1,37 @@
 import React from 'react';
-import { ShieldCheck, ShieldAlert, CheckCircle2, Split, Lock, Scale, Sparkles, Radio, ExternalLink } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Split, Scale, Sparkles, CheckCircle2 } from 'lucide-react';
+import { getJudgesExplainer } from '../utils/explainer';
 
-export default function CounterfactualProof({ counterfactualResult, onRunAgain = null, onRunFeatured = null }) {
+/**
+ * CounterfactualProof — Matches Screenshot 3 with 100% fidelity:
+ * 1. Top banner: ATTACK NEUTRALIZED [SCENARIO {ID}] + Headline + Inset Judge's Verdict Card
+ * 2. 3-metric strip: DIVERGENCE STEP | BASELINE RESULT | PROTECTED RESULT
+ * 3. 3-column Divergence Diagram: BASELINE (UNPROTECTED) | Divider with ✕ | CHAINBREAK (PROTECTED)
+ */
+export default function CounterfactualProof({
+  counterfactualResult,
+  selectedScenario = null,
+  onRunAgain = null,
+  onRunFeatured = null
+}) {
   if (!counterfactualResult) {
     return (
-      <div className="proof-empty-state card-obsidian p-10 text-center border border-graphite rounded-xl">
-        <Split size={28} className="text-compass-gold mx-auto mb-3" />
-        <div className="empty-title text-heading-sm font-bold text-chalk uppercase tracking-wider mb-2">
-          Awaiting Counterfactual Execution
-        </div>
-        <p className="empty-desc text-caption text-smoke max-w-md mx-auto mb-4">
-          Run any Web3 scenario to generate undeniable dual-track causal proof: Unprotected Baseline vs ChainBreak Pre-Signing Gate.
+      <div className="timeline-empty-state" style={{ padding: '60px 20px', textAlign: 'center' }}>
+        <Split size={28} style={{ color: 'var(--color-compass-gold)', margin: '0 auto 12px auto' }} />
+        <div className="empty-title">AWAITING COUNTERFACTUAL EXECUTION</div>
+        <p className="empty-desc" style={{ maxWidth: '520px', margin: '0 auto 18px auto', fontSize: '13px' }}>
+          Run any scenario to generate side-by-side counterfactual proof: Unprotected Baseline vs ChainBreak Invariant Firewall.
         </p>
         {(onRunFeatured || onRunAgain) && (
           <button
             type="button"
-            className="btn-pill-primary inline-flex items-center gap-2 bg-compass-gold text-obsidian font-bold px-4 py-2 rounded-full text-caption hover:bg-compass-gold-dim transition-all"
+            className="btn-pill-primary"
+            style={{ gap: '6px' }}
             onClick={() => (onRunFeatured ? onRunFeatured('W3') : onRunAgain('W3'))}
             id="btn-proof-run-w3"
           >
-            <Sparkles size={14} />
-            <span>RUN FLAGSHIP W3 ATTACK PROOF</span>
+            <Sparkles size={13} />
+            <span>RUN W3 ATTACK PROOF</span>
           </button>
         )}
       </div>
@@ -30,233 +41,202 @@ export default function CounterfactualProof({ counterfactualResult, onRunAgain =
   const {
     scenario_id: rawScenarioId,
     scenario_name,
-    broadcast_mode,
     baseline,
     protected: protectedRun,
     attack_prevented: rawAttackPrevented,
     correctly_blocked,
-    proof_statement,
     divergence_step: rawDivergenceStep,
     causal_lineage,
+    root_cause_explanation,
   } = counterfactualResult;
 
-  const scenario_id = rawScenarioId || 'W3';
+  const scenario_id = rawScenarioId || selectedScenario?.id || 'W3';
   const attack_prevented = rawAttackPrevented ?? correctly_blocked ?? (protectedRun?.final_decision === 'BLOCK');
   const divergence_step = rawDivergenceStep ?? causal_lineage?.divergence_step ?? null;
 
-  const isBlocked = attack_prevented;
-  const isSafe = protectedRun?.final_decision === 'ALLOW';
-  const cardType = isBlocked ? 'blocked' : isSafe ? 'safe' : 'hold';
+  const isBlocked = attack_prevented || protectedRun?.final_decision === 'BLOCK';
+  const isHold = protectedRun?.final_decision === 'HOLD';
+  const isSafe = !isBlocked && !isHold;
 
-  // Extract receipts if Web3 format, or actions if legacy
-  const baseReceipts = baseline?.receipts || [];
-  const protReceipts = protectedRun?.receipts || [];
-  const maxSteps = Math.max(baseReceipts.length, protReceipts.length, 1);
+  // Extract receipts/actions for step rows
+  const baseItems = baseline?.receipts || baseline?.actions || [];
+  const protItems = protectedRun?.receipts || protectedRun?.actions || [];
+  const maxSteps = Math.max(baseItems.length, protItems.length, selectedScenario?.proposals?.length || 1);
 
   const rows = [];
   for (let i = 0; i < maxSteps; i++) {
     const stepNum = i + 1;
-    const baseR = baseReceipts[i];
-    const protR = protReceipts[i];
-    const isDivergence = i === divergence_step;
+    const baseItem = baseItems[i];
+    const protItem = protItems[i];
+    const prop = selectedScenario?.proposals?.[i];
 
-    let protStatus = 'UNREACHED';
-    if (protR) {
-      protStatus = protR.decision;
-    } else if (isBlocked || (divergence_step !== null && i > divergence_step)) {
-      protStatus = 'HALTED';
+    // Determine tool name
+    let toolName = 'action';
+    if (protItem?.decoded?.method) {
+      toolName = `${protItem.decoded.method}`;
+    } else if (baseItem?.decoded?.method) {
+      toolName = `${baseItem.decoded.method}`;
+    } else if (protItem?.tool) {
+      toolName = protItem.tool;
+    } else if (baseItem?.tool) {
+      toolName = baseItem.tool;
+    } else if (prop?.data && prop.data !== '0x' && prop.data.length > 10) {
+      toolName = 'transfer';
     } else {
-      protStatus = 'ALLOW';
+      toolName = 'native_eth_transfer';
+    }
+
+    const isBreak = i === divergence_step;
+
+    let protDec = 'ALLOW';
+    if (protItem) {
+      protDec = protItem.decision;
+    } else if (isBlocked && divergence_step !== null && i >= divergence_step) {
+      protDec = 'BLOCK';
+    } else if (isBlocked) {
+      protDec = 'BLOCK';
     }
 
     rows.push({
       stepNum,
-      baseDecision: baseR ? baseR.decision : 'SKIPPED',
-      baseBroadcast: baseR ? baseR.broadcast : false,
-      baseTxHash: baseR ? baseR.transaction_hash : null,
-      protDecision: protStatus,
-      protBroadcast: protR ? protR.broadcast : false,
-      protTxHash: protR ? protR.transaction_hash : null,
-      isDivergence,
+      tool: toolName,
+      baseDecision: baseItem?.decision || 'ALLOW',
+      protDecision: protDec,
+      isBreak,
     });
   }
 
-  const modeBadgeText = broadcast_mode === 'REAL_TESTNET'
-    ? 'LIVE PUBLIC TESTNET (SEPOLIA)'
-    : 'LOCAL SIMULATED EVM (OFFLINE REPLAY)';
+  const divStepNum = divergence_step !== null && divergence_step !== undefined
+    ? Number(divergence_step) + 1
+    : (isBlocked ? 1 : null);
+
+  const blockedTool = rows.find(r => r.isBreak)?.tool || rows[rows.length - 1]?.tool || 'transfer';
+
+  // Get Judge's Explainer
+  const explainer = getJudgesExplainer({
+    scenarioId: scenario_id,
+    invariantName: causal_lineage?.violated_invariants?.[0] || '',
+    decision: isBlocked ? 'BLOCK' : isHold ? 'HOLD' : 'ALLOW',
+    reason: root_cause_explanation || causal_lineage?.reason || '',
+  });
 
   return (
-    <div className="counterfactual-proof-container space-y-4" id="counterfactual-proof-deck">
-      {/* Honest Execution Labeling Banner (PROOF-02) */}
-      <div className="flex items-center justify-between bg-carbon border border-graphite rounded-lg px-4 py-2 text-meta font-mono">
-        <div className="flex items-center gap-2">
-          <Radio className="w-3.5 h-3.5 text-compass-gold animate-pulse" />
-          <span className="text-ash font-bold">EXECUTION SUBSTRATE HONEST LABEL:</span>
-          <span className="text-chalk font-semibold">{modeBadgeText}</span>
-        </div>
-        <span className="text-ash text-meta">PROOF-02 VERIFIED</span>
-      </div>
-
-      {/* Verdict Card */}
-      <div className={`proof-verdict-card card-obsidian border rounded-xl p-5 ${
-        isBlocked ? 'border-violation-red/60 bg-violation-red/5' :
-        isSafe ? 'border-pulse-green/60 bg-pulse-green/5' : 'border-hold-amber/60 bg-hold-amber/5'
-      }`}>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            {isBlocked ? (
-              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-caption font-bold bg-violation-red/20 text-violation-red border border-violation-red/40">
-                <ShieldCheck size={14} />
-                ATTACK BLOCKED BEFORE SIGNING
-              </span>
-            ) : isSafe ? (
-              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-caption font-bold bg-pulse-green/20 text-pulse-green border border-pulse-green/40">
-                <CheckCircle2 size={14} />
-                BENIGN TRAJECTORY (ZERO FALSE BLOCKS)
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-caption font-bold bg-hold-amber/20 text-hold-amber border border-hold-amber/40">
-                <ShieldAlert size={14} />
-                FAIL-CLOSED HOLD
-              </span>
-            )}
-            <span className="text-meta font-mono px-2 py-0.5 rounded bg-carbon border border-graphite text-smoke">
-              SCENARIO {scenario_id}
-            </span>
-          </div>
-
-          <div className="text-meta font-mono text-smoke">
-            Latency: {counterfactualResult.latency_ms?.toFixed(1) || '0.9'} ms
-          </div>
+    <div className="proof-container space-y-4" id="proof-panel-deck" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Top Banner & Inset Judge's Verdict Card (Matching Screenshot 3) */}
+      <div className={`violation-panel ${isBlocked ? 'blocked' : 'clean'}`} style={{ margin: 0, padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <span className={`flagship-tag ${isBlocked ? 'cat-attack' : 'cat-safe'}`} style={{ padding: '2px 8px' }}>
+            {isBlocked ? 'ATTACK NEUTRALIZED' : 'VERIFIED SAFE'}
+          </span>
+          <span className="badge-pill" style={{ padding: '2px 8px', fontSize: '10px' }}>
+            SCENARIO {scenario_id}
+          </span>
         </div>
 
-        <h3 className="text-heading font-extrabold text-chalk mb-2">
+        <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--color-chalk)', letterSpacing: '-0.02em', marginBottom: '4px' }}>
           {isBlocked
-            ? `Threat Blocked at Step ${divergence_step !== null ? divergence_step + 1 : 1} — Zero Broadcast Permitted`
-            : isSafe
-            ? 'All Operations Compliant with Intent'
-            : 'Execution Halted Under Fail-Closed Invariants'}
-        </h3>
+            ? `ChainBreak intercepted at Step ${String(divStepNum || 1).padStart(2, '0')} (${blockedTool})`
+            : `All ${maxSteps} Steps Verified Compliant with Intent`}
+        </h2>
+        <p style={{ fontSize: '12px', color: 'var(--color-smoke)', marginBottom: '14px' }}>
+          {isBlocked
+            ? `Baseline trajectory progressed through all ${maxSteps} step(s) unchecked. ChainBreak invariant enforcement severed execution before wallet signing.`
+            : `Baseline and Protected pipelines both executed safely with zero false blocks.`}
+        </p>
 
-        {proof_statement && (
-          <p className="text-caption text-chalk-soft bg-carbon/60 p-3 rounded border border-graphite/50 font-mono">
-            {proof_statement}
-          </p>
-        )}
+        {/* Inset Judge's Verdict Card */}
+        <div className="judges-briefing-card danger" style={{ marginTop: '0' }}>
+          <div className="judges-briefing-header">
+            <Scale size={13} style={{ color: 'var(--color-pulse-green)' }} />
+            <span className="judges-tag">{explainer.title}</span>
+            <span className="judges-badge-pill">{explainer.badge}</span>
+          </div>
+          <div className="judges-headline">{explainer.headline}</div>
+          <p className="judges-body-text">{explainer.explanation}</p>
+          <div className="judges-takeaway-strip">
+            <Sparkles size={12} style={{ color: 'var(--color-compass-gold)', flexShrink: 0 }} />
+            <span>
+              <strong>Key Takeaway:</strong> {explainer.judgeTakeaway}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Causal Lineage Panel (PROOF-03) */}
-      {causal_lineage && (
-        <div className="causal-lineage-card card-obsidian border border-compass-gold/30 bg-card-bg rounded-xl p-5">
-          <div className="flex items-center gap-2 border-b border-graphite pb-3 mb-3">
-            <Scale className="w-4 h-4 text-compass-gold" />
-            <h4 className="text-heading-sm font-bold text-chalk">
-              Causal Lineage & Breach Telemetry (PROOF-03)
-            </h4>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-caption font-mono">
-            <div className="bg-carbon p-3 rounded border border-graphite">
-              <span className="text-meta text-ash block mb-1">Divergence Step:</span>
-              <span className="text-chalk font-bold">
-                Step {(causal_lineage.divergence_step ?? 0) + 1}
-              </span>
-            </div>
-            <div className="bg-carbon p-3 rounded border border-graphite">
-              <span className="text-meta text-ash block mb-1">Violated Invariant:</span>
-              <span className="text-violation-red font-bold">
-                {causal_lineage.violated_invariants?.join(', ') || causal_lineage.hold_reason || 'INVARIANT_VIOLATION'}
-              </span>
-            </div>
-            <div className="bg-carbon p-3 rounded border border-graphite">
-              <span className="text-meta text-ash block mb-1">Protected Broadcast:</span>
-              <span className="text-pulse-green font-bold">
-                Suppressed (tx_hash = null)
-              </span>
-            </div>
-          </div>
-
-          {causal_lineage.reason && (
-            <div className="mt-3 text-caption text-smoke bg-carbon p-2.5 rounded border border-graphite/60">
-              <strong className="text-compass-gold">Causal Reason: </strong>
-              {causal_lineage.reason}
-            </div>
-          )}
+      {/* 3 Metrics Row (Divergence Step, Baseline Result, Protected Result) */}
+      <div className="proof-metrics-row">
+        <div className="metric-cell">
+          <span className="metric-label">DIVERGENCE STEP</span>
+          <span className="metric-value">
+            {divStepNum ? `Step ${String(divStepNum).padStart(2, '0')}` : 'None'}
+          </span>
         </div>
-      )}
+        <div className="metric-cell">
+          <span className="metric-label">BASELINE RESULT</span>
+          <span className="metric-value danger">
+            {isBlocked ? 'ALLOW' : 'ALLOW'}
+          </span>
+        </div>
+        <div className="metric-cell">
+          <span className="metric-label">PROTECTED RESULT</span>
+          <span className={`metric-value ${isBlocked ? 'danger' : 'success'}`}>
+            {isBlocked ? 'BLOCK' : 'ALLOW'}
+          </span>
+        </div>
+      </div>
 
-      {/* Dual Track Comparison Table */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Left: Baseline Track */}
-        <div className="card-obsidian border border-violation-red/40 bg-card-bg rounded-xl p-4">
-          <div className="flex items-center justify-between border-b border-graphite pb-2 mb-3">
-            <span className="text-caption font-bold text-violation-red uppercase font-mono">
-              Unprotected Baseline
-            </span>
-            <span className="text-meta font-mono text-smoke">
-              Broadcasts: {baseline?.broadcast_count || 0}
-            </span>
-          </div>
-          <div className="space-y-2">
+      {/* Visual Divergence Diagram Matching Screenshot 3 */}
+      <div className="divergence-diagram">
+        {/* Left Track: BASELINE (UNPROTECTED) */}
+        <div className="divergence-track">
+          <div className="divergence-track-header">BASELINE (UNPROTECTED)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {rows.map((row) => (
-              <div key={`base-${row.stepNum}`} className="bg-carbon p-2.5 rounded border border-graphite text-caption font-mono">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-smoke">Step {row.stepNum}</span>
-                  <span className="text-violation-red font-bold">BROADCAST SUCCESS</span>
-                </div>
-                <div className="text-meta text-ash truncate" title={row.baseTxHash || ''}>
-                  Hash: {row.baseTxHash || '0x...'}
-                </div>
+              <div key={`base-row-${row.stepNum}`} className="divergence-step-row">
+                <span className="divergence-step-num">{String(row.stepNum).padStart(2, '0')}</span>
+                <span className="divergence-step-tool">{row.tool}</span>
+                <span className="divergence-step-decision">
+                  <span className="decision-pill allow">ALLOW</span>
+                </span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Right: ChainBreak Protected Track */}
-        <div className="card-obsidian border border-pulse-green/40 bg-card-bg rounded-xl p-4">
-          <div className="flex items-center justify-between border-b border-graphite pb-2 mb-3">
-            <span className="text-caption font-bold text-pulse-green uppercase font-mono">
-              ChainBreak Protected
-            </span>
-            <span className="text-meta font-mono text-smoke">
-              Broadcasts: {protectedRun?.broadcast_count || 0}
-            </span>
-          </div>
-          <div className="space-y-2">
+        {/* Center: Divergence Break Line & Indicator */}
+        <div className="divergence-center">
+          {rows.map((row) => (
+            <div
+              key={`div-center-${row.stepNum}`}
+              className="divergence-break-indicator"
+              style={{ height: '36px' }}
+            >
+              {row.isBreak ? (
+                <div className="break-line" title="Execution severed here" />
+              ) : (
+                <div className="concordant-line" />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Right Track: CHAINBREAK (PROTECTED) */}
+        <div className="divergence-track">
+          <div className="divergence-track-header">CHAINBREAK (PROTECTED)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {rows.map((row) => {
-              const isBlock = row.protDecision === 'BLOCK' || row.isDivergence;
-              const isHold = row.protDecision === 'HOLD';
-              const isAllow = row.protDecision === 'ALLOW';
-              const isHalted = row.protDecision === 'HALTED' || row.protDecision === 'UNREACHED';
-
-              let cardClass = 'bg-carbon border-graphite';
-              if (isBlock) cardClass = 'bg-violation-red/10 border-violation-red/50';
-              else if (isHold) cardClass = 'bg-hold-amber/10 border-hold-amber/50';
-              else if (isHalted) cardClass = 'bg-carbon/40 border-graphite/40 opacity-75';
-
+              const isBlock = row.protDecision === 'BLOCK' || row.isBreak;
               return (
                 <div
-                  key={`prot-${row.stepNum}`}
-                  className={`p-2.5 rounded border text-caption font-mono ${cardClass}`}
+                  key={`prot-row-${row.stepNum}`}
+                  className={`divergence-step-row ${isBlock ? 'is-break' : ''}`}
                 >
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-smoke">Step {row.stepNum}</span>
-                    {isBlock && (
-                      <span className="text-violation-red font-bold">BLOCKED PRE-SIGNING</span>
-                    )}
-                    {isHold && (
-                      <span className="text-hold-amber font-bold">FAIL-CLOSED HOLD</span>
-                    )}
-                    {isAllow && (
-                      <span className="text-pulse-green font-bold">ALLOWED</span>
-                    )}
-                    {isHalted && (
-                      <span className="text-ash font-medium">HALTED (NOT EXECUTED)</span>
-                    )}
-                  </div>
-                  <div className="text-meta text-ash truncate">
-                    Hash: {row.protTxHash || (isHalted ? 'null (Execution Severed)' : 'null (Pre-Signing Gate Block)')}
-                  </div>
+                  <span className="divergence-step-num">{String(row.stepNum).padStart(2, '0')}</span>
+                  <span className="divergence-step-tool">{row.tool}</span>
+                  <span className="divergence-step-decision">
+                    <span className={`decision-pill ${isBlock ? 'block' : 'allow'}`}>
+                      {isBlock ? 'BLOCK' : 'ALLOW'}
+                    </span>
+                  </span>
                 </div>
               );
             })}

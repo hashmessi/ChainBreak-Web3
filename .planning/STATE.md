@@ -2,10 +2,10 @@
 
 ## Current Position
 
-Phase: 10-submission-package-and-hackathon-assets
+Phase: 12-editorial-web3-cockpit-polish-and-interactive-ai-summary-bot
 Plan: 01
-Status: Phase 1 through 9 (Models, Decoder, Invariants, Gate, Mutators, Counterfactual, Substrates, Web3 Cockpit, Evaluation Suite) verified & completed. Ready for Phase 10.
-Last activity: 2026-09-25 — Phase 9 executed, 98/98 tests passing, EvaluationPanel live with category filtering & metrics, frontend built clean.
+Status: Implementing Phase 12 — Editorial Web3 Cockpit Polish & Interactive AI Summary Bot.
+Last activity: 2026-09-26 — Phase 12 added: restoring v1 Obsidian editorial design, replacing emojis with clean dev components, and integrating interactive Web3 AI Summary Bot.
 
 ## Current Milestone: v2.0 ChainBreak-Web3
 - **Goal:** Provider-agnostic deterministic intent-integrity firewall for autonomous EVM agents.
@@ -21,7 +21,11 @@ Last activity: 2026-09-25 — Phase 9 executed, 98/98 tests passing, EvaluationP
   - Fail-closed semantics (uncertainty/error → HOLD/BLOCK, never ALLOW)
   - Obsidian editorial design system (React + Vite, Vanilla CSS)
 
+### Roadmap Evolution
+- Phase 12 added: Editorial Web3 Cockpit Polish and Interactive AI Summary Bot (restore v1 Obsidian aesthetic, remove AI slop/emojis, connect live AI Summary Bot to Web3 execution).
+
 ## Key Architectural Shift (Web2 → Web3)
 - Tool-name semantics replaced by strict raw EVM calldata decoding.
 - Data-leak boundaries replaced by `INTENT_INTEGRITY`, `CAPABILITY_BOUNDARY`, and `TRAJECTORY_BUDGET`.
 - Synthetic sandbox tools replaced by `ChainBreakExecutor` driving local deterministic EVM adapter or live testnet adapter.
+
