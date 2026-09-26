@@ -225,3 +225,35 @@ def test_inv04_fail_closed_on_missing_decoded(sample_intent, empty_trajectory):
     res = evaluate_invariants(sample_intent, empty_trajectory, None)
     assert res.decision == Decision.HOLD
     assert res.hold_reason == "MISSING_DECODED_TRANSACTION"
+
+
+def test_inv05_replay_nonce_violation_blocked(sample_intent, empty_trajectory):
+    """Verify INV-05: Replayed nonce triggers BLOCK under REPLAY_PROTECTION."""
+    from backend.core.models import TransactionProposal
+
+    decoded = DecodedEvmTransaction(
+        chain_id=CHAIN_ID_SEPOLIA,
+        asset="USDC",
+        method="transfer",
+        contract=SEPOLIA_USDC_CONTRACT,
+        recipient=ALICE_ADDRESS,
+        amount=50_000_000,
+        raw_to=SEPOLIA_USDC_CONTRACT,
+        raw_value=0,
+        calldata_hash="dummy_hash",
+    )
+    # First execution with nonce 7
+    p1 = TransactionProposal(chain_id=CHAIN_ID_SEPOLIA, to=SEPOLIA_USDC_CONTRACT, value=0, nonce=7)
+    res1 = evaluate_invariants(sample_intent, empty_trajectory, decoded, proposal=p1)
+    assert res1.decision == Decision.ALLOW
+
+    # Record proposal 1 in trajectory
+    traj_with_nonce7 = empty_trajectory.record_step("hash1", asset="USDC", amount=50_000_000, nonce=7)
+    assert 7 in traj_with_nonce7.nonce_history
+
+    # Proposal 2 attempts to reuse nonce 7
+    p2 = TransactionProposal(chain_id=CHAIN_ID_SEPOLIA, to=SEPOLIA_USDC_CONTRACT, value=0, nonce=7)
+    res2 = evaluate_invariants(sample_intent, traj_with_nonce7, decoded, proposal=p2)
+    assert res2.decision == Decision.BLOCK
+    assert InvariantId.REPLAY_PROTECTION in res2.violated_invariants
+    assert "already executed" in res2.reason

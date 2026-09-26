@@ -18,6 +18,7 @@ from backend.core.models import (
     DecodedEvmTransaction,
     IntentEnvelope,
     TrajectoryState,
+    TransactionProposal,
 )
 from backend.chain.decoder import DecodeResult
 
@@ -26,6 +27,7 @@ class InvariantId:
     INTENT_INTEGRITY = "INTENT_INTEGRITY"
     CAPABILITY_BOUNDARY = "CAPABILITY_BOUNDARY"
     TRAJECTORY_BUDGET = "TRAJECTORY_BUDGET"
+    REPLAY_PROTECTION = "REPLAY_PROTECTION"
 
 
 class InvariantResult(BaseModel):
@@ -45,6 +47,7 @@ def evaluate_invariants(
     trajectory: TrajectoryState,
     decoded: Optional[DecodedEvmTransaction],
     decode_result: Optional[DecodeResult] = None,
+    proposal: Optional[TransactionProposal] = None,
 ) -> InvariantResult:
     """
     Evaluates security invariants against a proposed transaction.
@@ -122,6 +125,7 @@ def evaluate_invariants(
             violation_reasons.append("Decoded transaction has no valid recipient address.")
         elif allowed_recipients_norm and tx_recipient not in allowed_recipients_norm:
             violations.append(InvariantId.INTENT_INTEGRITY)
+            violations.append(InvariantId.CAPABILITY_BOUNDARY)
             violation_reasons.append(
                 f"Recipient '{decoded.recipient}' does not match authorized recipients: {intent.allowed_recipients}."
             )
@@ -147,6 +151,19 @@ def evaluate_invariants(
                 violation_reasons.append(
                     f"Cumulative spend {projected_spend} for asset {tx_asset} exceeds session budget {max_session} "
                     f"(current spend: {current_cumulative}, proposed: {tx_amount})."
+                )
+
+        # ── INV-05: REPLAY_PROTECTION ─────────────────────────────────────────
+        if proposal is not None:
+            if proposal.nonce is not None and proposal.nonce in trajectory.nonce_history:
+                violations.append(InvariantId.REPLAY_PROTECTION)
+                violation_reasons.append(
+                    f"Nonce {proposal.nonce} already executed in session trajectory (REPLAY / NONCE VIOLATION)."
+                )
+            elif proposal.compute_hash() in trajectory.proposal_history:
+                violations.append(InvariantId.REPLAY_PROTECTION)
+                violation_reasons.append(
+                    f"Identical proposal hash {proposal.compute_hash()[:12]} already executed in trajectory (REPLAY / NONCE VIOLATION)."
                 )
 
         # ── Resolution: INV-04 Fail-Closed Semantics ──────────────────────────

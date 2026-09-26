@@ -101,20 +101,46 @@ export default function ActionCard({
               </div>
               <div className="semantic-pill">
                 <span className="pill-key">SENSITIVITY:</span>
-                <span className={`pill-val ${semantics.data_sensitivity === 'HIGH' ? 'danger' : semantics.data_sensitivity === 'MEDIUM' ? 'warn' : ''}`}>
-                  {semantics.data_sensitivity}
+                <span className={`pill-val ${(semantics.data_sensitivity || semantics.sensitivity) === 'HIGH' ? 'danger' : (semantics.data_sensitivity || semantics.sensitivity) === 'MEDIUM' ? 'warn' : ''}`}>
+                  {semantics.data_sensitivity || semantics.sensitivity || 'STANDARD'}
                 </span>
               </div>
-              {semantics.data_classes && semantics.data_classes.length > 0 && (
+              {(semantics.data || semantics.data_classes) && (
                 <div className="semantic-pill">
                   <span className="pill-key">DATA:</span>
-                  <span className="pill-val">{semantics.data_classes.join(', ')}</span>
+                  <span className="pill-val">{Array.isArray(semantics.data_classes) ? semantics.data_classes.join(', ') : (semantics.data || 'GENERAL')}</span>
                 </div>
               )}
               {semantics.confidence !== undefined && (
                 <div className="semantic-pill meta-dim">
                   <span className="pill-key">CONF:</span>
-                  <span className="pill-val">{(semantics.confidence * 100).toFixed(0)}%</span>
+                  <span className="pill-val">
+                    {typeof semantics.confidence === 'number'
+                      ? `${(semantics.confidence * 100).toFixed(0)}%`
+                      : semantics.confidence}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Invariant Violations Callout for Blocked/Hold steps */}
+          {(violations?.length > 0 || (decision === 'BLOCK' && reason) || (decision === 'HOLD' && reason)) && (
+            <div className="step-violation-callout" style={{
+              margin: '8px 0',
+              padding: '8px 12px',
+              background: decision === 'HOLD' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+              border: `1px solid ${decision === 'HOLD' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontFamily: 'var(--font-mono)'
+            }}>
+              <div style={{ color: decision === 'HOLD' ? 'var(--color-hold-amber)' : 'var(--color-violation-red)', fontWeight: 700, marginBottom: '2px' }}>
+                {decision === 'HOLD' ? 'FAIL-CLOSED FREEZE' : 'INVARIANT INTERCEPTION'}: {violations && violations.length > 0 ? violations.join(', ') : 'POLICY_VIOLATION'}
+              </div>
+              {reason && (
+                <div style={{ color: 'var(--color-chalk)', fontSize: '11px', fontFamily: 'var(--font-sans)', marginTop: '2px' }}>
+                  {reason}
                 </div>
               )}
             </div>

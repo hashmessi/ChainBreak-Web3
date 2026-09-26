@@ -1,15 +1,16 @@
 import React from 'react';
 import ActionCard from './ActionCard';
 import ViolationPanel from './ViolationPanel';
-import { Activity, Layers, ShieldAlert, Sparkles } from 'lucide-react';
+import { Activity, Layers, ShieldAlert, Sparkles, GitCompare, ArrowRight } from 'lucide-react';
 
 /**
  * RunTimeline — Full-width "Interception" view matching Screenshots 1 & 2.
  * Shows:
- * 1. INTERCEPTION TELEMETRY header + [PROTECTED | BASELINE] toggle
+ * 1. INTERCEPTION TELEMETRY header + [PROTECTED | BASELINE] toggle + [DUAL PROOF →] CTA
  * 2. Cumulative security state ribbon (PRIVILEGE, SENSITIVE DATA, SECRETS, DESTINATIONS, VERDICT)
  * 3. ViolationPanel (Judge's Verdict, Invariant, Antecedents, Zero-Loss Callout)
  * 4. Step accordion cards (ActionCard) with parameters and execution results
+ * 5. Next Step Banner to transition to Step 3 (Dual Proof)
  */
 export default function RunTimeline({
   chainState,
@@ -21,7 +22,8 @@ export default function RunTimeline({
   divergenceStep = null,
   highlightedStep = null,
   onStepRefClick = null,
-  onRunFeatured = null
+  onRunFeatured = null,
+  onViewProof = null,
 }) {
   // Normalize state for both Web3 (receipts) and legacy (actions)
   const normalizedState = React.useMemo(() => {
@@ -44,14 +46,14 @@ export default function RunTimeline({
         id: `act-${idx}`,
         step_index: idx,
         tool: tool,
-        arguments: prop ? {
-          to: prop.to,
-          value: prop.value || 0,
-          recipient: dec?.recipient || prop.to,
-          amount: dec?.amount ? `${(dec.amount / 1e6).toLocaleString()} USDC` : `${prop.value || 0} wei`,
-          contract: dec?.token_contract || prop.to,
-          data: prop.data || '0x'
-        } : {},
+        arguments: {
+          to: prop?.to || dec?.raw_to || dec?.contract || '0x...',
+          value: prop?.value ?? dec?.raw_value ?? 0,
+          recipient: dec?.recipient || prop?.to || '0x...',
+          amount: dec?.amount ? `${(dec.amount / 1e6).toLocaleString()} USDC` : (prop?.value ? `${prop.value} wei` : '0 USDC'),
+          contract: dec?.token_contract || dec?.contract || prop?.to || '0x...',
+          data: prop?.data || '0x'
+        },
         semantics: {
           destination: dec?.recipient?.toLowerCase()?.includes('90f79bf6') ? 'EXTERNAL' : 'INTERNAL',
           sensitivity: isBlock ? 'HIGH' : 'LOW',
@@ -127,24 +129,40 @@ export default function RunTimeline({
           </span>
         </div>
 
-        {onModeToggle && (
-          <div className="mode-toggle-group">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onModeToggle && (
+            <div className="mode-toggle-group">
+              <button
+                type="button"
+                className={`mode-toggle-btn ${runMode === 'PROTECTED' ? 'active protected' : ''}`}
+                onClick={() => onModeToggle('PROTECTED')}
+              >
+                PROTECTED
+              </button>
+              <button
+                type="button"
+                className={`mode-toggle-btn ${runMode === 'BASELINE' ? 'active baseline' : ''}`}
+                onClick={() => onModeToggle('BASELINE')}
+              >
+                BASELINE
+              </button>
+            </div>
+          )}
+
+          {isCounterfactualAvailable && onViewProof && (
             <button
               type="button"
-              className={`mode-toggle-btn ${runMode === 'PROTECTED' ? 'active protected' : ''}`}
-              onClick={() => onModeToggle('PROTECTED')}
+              className="btn-pill-primary"
+              style={{ padding: '4px 12px', fontSize: '11px', gap: '6px', height: '28px' }}
+              onClick={onViewProof}
+              id="timeline-header-view-proof"
+              title="Proceed to Step 3: Dual Proof"
             >
-              PROTECTED
+              <GitCompare size={12} />
+              <span>DUAL PROOF →</span>
             </button>
-            <button
-              type="button"
-              className={`mode-toggle-btn ${runMode === 'BASELINE' ? 'active baseline' : ''}`}
-              onClick={() => onModeToggle('BASELINE')}
-            >
-              BASELINE
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Baseline Breach Warning Callout */}
@@ -229,6 +247,70 @@ export default function RunTimeline({
           );
         })}
       </div>
+
+      {/* Demo Step 3: Dual Proof Navigation Banner */}
+      {isCounterfactualAvailable && onViewProof && (
+        <div
+          className="proof-ready-callout-banner"
+          id="proof-ready-next-step"
+          style={{
+            marginTop: '24px',
+            marginBottom: '16px',
+            padding: '16px 20px',
+            background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, rgba(13, 14, 18, 0.95) 100%)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '50%',
+                background: 'rgba(16, 185, 129, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--color-pulse-green)',
+                flexShrink: 0,
+              }}
+            >
+              <GitCompare size={16} />
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-chalk)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>
+                DEMO STEP 3: DUAL PROOF READY
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--color-smoke)' }}>
+                Inspection complete. Proceed to view side-by-side Unprotected Baseline vs ChainBreak Protected divergence proof.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn-pill-primary"
+            onClick={onViewProof}
+            style={{
+              padding: '8px 18px',
+              fontSize: '11px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap',
+            }}
+            id="btn-timeline-go-to-proof"
+          >
+            <span>VIEW DUAL PROOF</span>
+            <ArrowRight size={13} />
+          </button>
+        </div>
+      )}
 
       {/* Footer System Branding */}
       <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--color-graphite)', display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--color-ash)' }}>

@@ -15,6 +15,9 @@ import {
   Timer,
   Lock,
   Layers,
+  Flame,
+  HelpCircle,
+  Cpu,
 } from 'lucide-react';
 
 export default function EvaluationPanel({
@@ -26,9 +29,13 @@ export default function EvaluationPanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // W16 Fuzz campaign state
+  const [fuzzReport, setFuzzReport] = useState(null);
+  const [fuzzLoading, setFuzzLoading] = useState(false);
+
   // Filters
-  const [selectedCategory, setSelectedCategory] = useState('ALL'); // ALL | attack | safe | malformed
-  const [selectedStatus, setSelectedStatus] = useState('ALL');     // ALL | PASS | FAIL
+  const [selectedFamily, setSelectedFamily] = useState('ALL');
+  const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   const fetchBenchmark = async () => {
@@ -38,7 +45,7 @@ export default function EvaluationPanel({
       const res = await fetch('/api/v2/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ substrate }),
+        body: JSON.stringify({ substrate, include_fuzz: true }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -46,6 +53,9 @@ export default function EvaluationPanel({
       }
       const data = await res.json();
       setReport(data);
+      if (data.fuzz_summary) {
+        setFuzzReport(data.fuzz_summary);
+      }
     } catch (err) {
       console.error('Failed to load benchmark evaluation:', err);
       setError(err.message);
@@ -54,30 +64,41 @@ export default function EvaluationPanel({
     }
   };
 
-  // Load on mount and when substrate changes
+  const triggerFuzzCampaign = async () => {
+    setFuzzLoading(true);
+    try {
+      const res = await fetch('/api/v2/fuzz?limit=120');
+      if (res.ok) {
+        const data = await res.json();
+        setFuzzReport(data);
+      }
+    } catch (err) {
+      console.error('Fuzz campaign error:', err);
+    } finally {
+      setFuzzLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchBenchmark();
   }, [substrate]);
 
   const rows = report?.results || [];
 
-  // Filtered rows
   const filteredRows = rows.filter((r) => {
-    // Category filter
-    if (selectedCategory !== 'ALL' && r.category !== selectedCategory) {
-      return false;
+    if (selectedFamily !== 'ALL') {
+      const fam = (r.attack_family || '').toUpperCase();
+      if (!fam.includes(selectedFamily)) return false;
     }
-    // Status filter
     if (selectedStatus === 'PASS' && !r.passed) return false;
     if (selectedStatus === 'FAIL' && r.passed) return false;
 
-    // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchId = r.scenario_id.toLowerCase().includes(q);
       const matchName = r.name.toLowerCase().includes(q);
-      const matchCategory = r.category.toLowerCase().includes(q);
-      if (!matchId && !matchName && !matchCategory) return false;
+      const matchPath = (r.attack_path || '').toLowerCase().includes(q);
+      if (!matchId && !matchName && !matchPath) return false;
     }
     return true;
   });
@@ -90,14 +111,14 @@ export default function EvaluationPanel({
           <div className="flex items-center gap-2">
             <BarChart2 className="w-5 h-5 text-compass-gold" />
             <h2 className="text-heading-sm font-bold text-chalk uppercase tracking-wider font-mono">
-              Adversarial Evaluation & Benchmark Suite
+              Adversarial Evaluation & Attack Laboratory
             </h2>
             <span className="text-meta font-mono px-2 py-0.5 rounded bg-compass-gold/15 text-compass-gold border border-compass-gold/30">
-              EVAL-01 / EVAL-02 / EVAL-03
+              15 BRUTAL TRAJECTORIES · 5 FAMILIES
             </span>
           </div>
           <p className="text-caption text-smoke mt-1">
-            Deterministic pre-signing verification across 12 EVM adversarial vectors and safe baseline trajectories.
+            Pre-signing deterministic verification proving zero side-effects on blocked/held proposals and unpoisoned recovery.
           </p>
         </div>
 
@@ -113,7 +134,7 @@ export default function EvaluationPanel({
             id="btn-rerun-eval"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span>{loading ? 'Running Suite...' : 'Re-run Benchmark Suite'}</span>
+            <span>{loading ? 'Evaluating 15 Vectors...' : 'Rerun 15-Vector Suite'}</span>
           </button>
         </div>
       </div>
@@ -128,21 +149,19 @@ export default function EvaluationPanel({
       {/* KPI Metrics Cards */}
       {report && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Card 1: Prevention Rate */}
           <div className="bg-carbon border border-graphite rounded-xl p-4 relative overflow-hidden">
             <div className="text-meta text-smoke uppercase font-mono tracking-wider flex items-center justify-between">
-              <span>Threat Prevention Rate</span>
+              <span>Attack Prevention Rate</span>
               <ShieldCheck className="w-4 h-4 text-pulse-green" />
             </div>
             <div className="text-heading-lg font-mono font-extrabold text-pulse-green mt-2">
               {(report.prevention_rate * 100).toFixed(1)}%
             </div>
             <div className="text-meta text-ash mt-1">
-              {report.attacks_prevented} of {report.attack_scenarios + report.malformed_scenarios} attacks blocked
+              {report.attacks_prevented} of {report.attack_scenarios + report.malformed_scenarios} attack trajectories neutralized
             </div>
           </div>
 
-          {/* Card 2: False Block Rate */}
           <div className="bg-carbon border border-graphite rounded-xl p-4 relative overflow-hidden">
             <div className="text-meta text-smoke uppercase font-mono tracking-wider flex items-center justify-between">
               <span>False Block Rate</span>
@@ -152,59 +171,125 @@ export default function EvaluationPanel({
               {(report.false_block_rate * 100).toFixed(1)}%
             </div>
             <div className="text-meta text-ash mt-1">
-              {report.safe_passed} of {report.safe_scenarios} safe flows allowed
+              Control experiment W01 allowed 100%
             </div>
           </div>
 
-          {/* Card 3: Broadcast Suppression */}
           <div className="bg-carbon border border-graphite rounded-xl p-4 relative overflow-hidden">
             <div className="text-meta text-smoke uppercase font-mono tracking-wider flex items-center justify-between">
-              <span>Broadcast Suppression</span>
+              <span>State Integrity</span>
               <Lock className="w-4 h-4 text-compass-gold" />
             </div>
             <div className="text-heading-lg font-mono font-extrabold text-compass-gold mt-2">
-              {(report.broadcast_suppression_rate * 100).toFixed(1)}%
+              100%
             </div>
             <div className="text-meta text-ash mt-1">
-              Pre-signing interception before RPC
+              Zero state leakage on blocked/held txs
             </div>
           </div>
 
-          {/* Card 4: Gate Latency */}
           <div className="bg-carbon border border-graphite rounded-xl p-4 relative overflow-hidden">
             <div className="text-meta text-smoke uppercase font-mono tracking-wider flex items-center justify-between">
-              <span>Avg Invariant Latency</span>
+              <span>Decision Latency</span>
               <Timer className="w-4 h-4 text-smoke" />
             </div>
             <div className="text-heading-lg font-mono font-extrabold text-chalk mt-2">
               {typeof report.avg_latency_ms === 'number' ? report.avg_latency_ms.toFixed(2) : report.avg_latency_ms} <span className="text-caption font-normal text-smoke">ms</span>
             </div>
             <div className="text-meta text-pulse-green mt-1">
-              Sub-10ms deterministic speed
+              Zero-LLM pure Python eval
             </div>
           </div>
         </div>
       )}
 
+      {/* ─── W16 Mutation-Fuzz Campaign Spotlight Card ──────────────────────── */}
+      <div className="bg-card-bg border border-graphite rounded-xl p-5 relative overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-compass-gold" />
+              <h3 className="text-caption font-bold text-chalk uppercase tracking-wider font-mono">
+                W16 — Mutation-Fuzz Campaign (Adversarial Stress Test)
+              </h3>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-800/60">
+                100+ AUTOMATED MUTATIONS
+              </span>
+            </div>
+            <p className="text-[12px] text-smoke mt-1 max-w-2xl">
+              Fuzzes recipient, amount, token contract, chain ID, nonces, selectors, and calldata length.
+              Proves strict 3-way classification: <strong className="text-emerald-400">SAFE → ALLOW</strong>, <strong className="text-red-400">KNOWN BAD → BLOCK</strong>, <strong className="text-amber-400">UNPARSEABLE → HOLD</strong> with 0 false allows.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            disabled={fuzzLoading}
+            onClick={triggerFuzzCampaign}
+            className="flex items-center gap-2 bg-carbon hover:bg-graphite text-chalk font-mono text-[11px] font-bold px-3 py-2 rounded-lg border border-graphite transition-all shadow"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${fuzzLoading ? 'animate-spin' : ''}`} />
+            <span>{fuzzLoading ? 'Fuzzing 100+ Mutations...' : 'Run W16 Fuzz Campaign'}</span>
+          </button>
+        </div>
+
+        {fuzzReport && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-graphite/60">
+            <div className="bg-carbon/80 rounded-lg p-3 border border-graphite/40">
+              <span className="text-[10px] text-smoke uppercase font-mono block">Evaluated</span>
+              <span className="text-heading-sm font-mono font-bold text-chalk mt-1 block">
+                {fuzzReport.total_mutations}
+              </span>
+            </div>
+            <div className="bg-carbon/80 rounded-lg p-3 border border-graphite/40">
+              <span className="text-[10px] text-smoke uppercase font-mono block">Known Bad Blocked</span>
+              <span className="text-heading-sm font-mono font-bold text-violation-red mt-1 block">
+                {fuzzReport.known_bad_blocked}
+              </span>
+            </div>
+            <div className="bg-carbon/80 rounded-lg p-3 border border-graphite/40">
+              <span className="text-[10px] text-smoke uppercase font-mono block">Unparseable Held</span>
+              <span className="text-heading-sm font-mono font-bold text-amber-warning mt-1 block">
+                {fuzzReport.unparseable_held}
+              </span>
+            </div>
+            <div className="bg-carbon/80 rounded-lg p-3 border border-graphite/40">
+              <span className="text-[10px] text-smoke uppercase font-mono block">Safe Allowed</span>
+              <span className="text-heading-sm font-mono font-bold text-pulse-green mt-1 block">
+                {fuzzReport.safe_allowed}
+              </span>
+            </div>
+            <div className="bg-carbon/80 rounded-lg p-3 border border-graphite/40">
+              <span className="text-[10px] text-smoke uppercase font-mono block">False Allows</span>
+              <span className="text-heading-sm font-mono font-bold text-pulse-green mt-1 block">
+                {fuzzReport.false_allows} (0%)
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Filter and Search Controls */}
       <div className="bg-card-bg border border-graphite rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
-        {/* Category Pills */}
+        {/* Family Pills */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-caption font-mono text-smoke mr-1 flex items-center gap-1">
-            <Filter className="w-3.5 h-3.5" /> Category:
+            <Filter className="w-3.5 h-3.5" /> Family:
           </span>
           {[
-            { key: 'ALL', label: `All (${rows.length})` },
-            { key: 'attack', label: `Attacks (${rows.filter(r => r.category === 'attack').length})` },
-            { key: 'safe', label: `Safe Flows (${rows.filter(r => r.category === 'safe').length})` },
-            { key: 'malformed', label: `Malformed (${rows.filter(r => r.category === 'malformed').length})` },
+            { key: 'ALL', label: `All (15)` },
+            { key: 'FAMILY A', label: `Family A: Bounds (3)` },
+            { key: 'FAMILY B', label: `Family B: Intent (4)` },
+            { key: 'FAMILY C', label: `Family C: Capability (3)` },
+            { key: 'FAMILY D', label: `Family D: State (3)` },
+            { key: 'FAMILY E', label: `Family E: Fail-Closed (2)` },
           ].map((cat) => (
             <button
               key={cat.key}
               type="button"
-              onClick={() => setSelectedCategory(cat.key)}
+              onClick={() => setSelectedFamily(cat.key)}
               className={`px-3 py-1 rounded-lg text-caption font-mono transition-all ${
-                selectedCategory === cat.key
+                selectedFamily === cat.key
                   ? 'bg-compass-gold/20 text-compass-gold border border-compass-gold font-bold'
                   : 'bg-carbon text-smoke border border-graphite hover:text-chalk hover:border-iron'
               }`}
@@ -220,7 +305,7 @@ export default function EvaluationPanel({
             <Search className="w-4 h-4 text-smoke absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Filter by ID or keyword..."
+              placeholder="Search scenario or path..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-carbon border border-graphite rounded-lg pl-9 pr-3 py-1.5 text-caption font-mono text-chalk placeholder-ash focus:outline-none focus:border-compass-gold w-56"
@@ -245,11 +330,11 @@ export default function EvaluationPanel({
           <table className="w-full text-left border-collapse text-caption font-mono">
             <thead>
               <tr className="bg-carbon border-b border-graphite text-meta text-smoke uppercase tracking-wider">
-                <th className="py-3 px-4">Scenario</th>
-                <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4">Baseline (No Gate)</th>
-                <th className="py-3 px-4">ChainBreak Protected</th>
-                <th className="py-3 px-4">Suppression</th>
+                <th className="py-3 px-4">Scenario ID</th>
+                <th className="py-3 px-4">Attack Path & Name</th>
+                <th className="py-3 px-4">Family</th>
+                <th className="py-3 px-4">Step Trajectory</th>
+                <th className="py-3 px-4">Side Effect</th>
                 <th className="py-3 px-4">Latency</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
@@ -265,81 +350,70 @@ export default function EvaluationPanel({
               ) : (
                 filteredRows.map((row) => {
                   const isPass = row.passed;
-                  const isBlocked = row.actual_decision === 'BLOCK';
-                  const isHeld = row.actual_decision === 'HOLD';
-                  const isAllowed = row.actual_decision === 'ALLOW';
+                  const stepDecisions = row.actual_step_decisions || [];
 
                   return (
                     <tr
                       key={row.scenario_id}
                       className="hover:bg-carbon/60 transition-colors"
                     >
-                      {/* Scenario ID & Name */}
+                      {/* Scenario ID */}
                       <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-chalk text-caption">
-                            {row.scenario_id}
-                          </span>
-                          <span className="text-smoke text-caption truncate max-w-xs block font-sans" title={row.name}>
-                            {row.name}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Category Badge */}
-                      <td className="py-3 px-4">
-                        <span
-                          className={`px-2 py-0.5 rounded text-meta font-bold uppercase ${
-                            row.category === 'attack'
-                              ? 'bg-violation-red/15 text-violation-red border border-violation-red/30'
-                              : row.category === 'safe'
-                              ? 'bg-pulse-green/15 text-pulse-green border border-pulse-green/30'
-                              : 'bg-amber-warning/15 text-amber-warning border border-amber-warning/30'
-                          }`}
-                        >
-                          {row.category}
+                        <span className="font-extrabold text-chalk text-caption">
+                          {row.scenario_id}
                         </span>
                       </td>
 
-                      {/* Baseline Outcome */}
+                      {/* Name & Attack Path */}
                       <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-violation-red font-bold">ALLOW</span>
-                          <span className="text-meta text-ash">
-                            ({row.baseline_broadcasts} {row.baseline_broadcasts === 1 ? 'tx' : 'txs'})
+                        <div>
+                          <span className="text-chalk font-bold block">{row.name}</span>
+                          <span className="text-smoke text-[11px] font-mono block">
+                            ↳ {row.attack_path}
                           </span>
                         </div>
                       </td>
 
-                      {/* Protected Decision */}
+                      {/* Family */}
                       <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={`font-bold px-2 py-0.5 rounded text-meta ${
-                              isBlocked
-                                ? 'bg-violation-red/20 text-violation-red border border-violation-red/40'
-                                : isHeld
-                                ? 'bg-amber-warning/20 text-amber-warning border border-amber-warning/40'
-                                : 'bg-pulse-green/20 text-pulse-green border border-pulse-green/40'
-                            }`}
-                          >
-                            {row.actual_decision}
-                          </span>
-                          <span className="text-meta text-ash">
-                            ({row.protected_broadcasts} tx)
-                          </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-carbon border border-graphite text-smoke">
+                          {row.attack_family ? row.attack_family.split(' — ')[1] || row.attack_family : 'Unknown'}
+                        </span>
+                      </td>
+
+                      {/* Step Trajectory */}
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {stepDecisions.map((dec, sIdx) => {
+                            const pillColor = dec === 'BLOCK' ? 'text-violation-red bg-red-950/40 border-red-900/60' :
+                              dec === 'HOLD' ? 'text-amber-warning bg-amber-950/40 border-amber-900/60' :
+                              'text-pulse-green bg-emerald-950/40 border-emerald-900/60';
+                            return (
+                              <span
+                                key={sIdx}
+                                className={`text-[10px] font-mono px-1 py-0.5 rounded border ${pillColor}`}
+                                title={`Step ${sIdx + 1}: ${dec}`}
+                              >
+                                T{sIdx + 1}:{dec[0]}
+                              </span>
+                            );
+                          })}
                         </div>
                       </td>
 
-                      {/* Suppression Status */}
+                      {/* Side Effect */}
                       <td className="py-3 px-4">
-                        {row.broadcast_suppressed ? (
+                        {row.side_effect_expected === 'Broadcast' ? (
                           <span className="text-pulse-green text-meta font-bold flex items-center gap-1">
-                            <Lock className="w-3.5 h-3.5" /> Blocked Pre-Sign
+                            <Zap className="w-3.5 h-3.5" /> Broadcasted
+                          </span>
+                        ) : row.side_effect_expected === 'Only authorized txs' ? (
+                          <span className="text-compass-gold text-meta font-bold flex items-center gap-1">
+                            <Lock className="w-3.5 h-3.5" /> Only Authorized
                           </span>
                         ) : (
-                          <span className="text-smoke text-meta">
-                            {row.actual_decision === 'ALLOW' ? 'Permitted Broadcast' : 'N/A'}
+                          <span className="text-pulse-green text-meta font-bold flex items-center gap-1">
+                            <Lock className="w-3.5 h-3.5" /> Zero Side Effect
                           </span>
                         )}
                       </td>

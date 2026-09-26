@@ -22,6 +22,7 @@ class TrajectoryExecutionReport(BaseModel):
     broadcast_mode: Literal["SIMULATED_LOCAL", "REAL_TESTNET"]
     receipts: List[DecisionReceipt]
     final_decision: Decision
+    step_decisions: List[str] = Field(default_factory=list)
     total_spend_per_asset: Dict[str, int] = Field(default_factory=dict)
     broadcast_count: int = 0
     completed_steps: int = 0
@@ -52,6 +53,8 @@ class Web3CounterfactualResult(BaseModel):
 
     scenario_id: str
     scenario_name: str
+    attack_family: Optional[str] = None
+    attack_path: Optional[str] = None
     broadcast_mode: Literal["SIMULATED_LOCAL", "REAL_TESTNET"]
     baseline: TrajectoryExecutionReport
     protected: TrajectoryExecutionReport
@@ -61,3 +64,5 @@ class Web3CounterfactualResult(BaseModel):
     causal_lineage: Optional[CausalLineage] = None
     proof_statement: str = ""
     latency_ms: float = 0.0
+    trajectory_invariant_verified: bool = True
+    side_effect_expected: str = "None"

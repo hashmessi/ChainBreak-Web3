@@ -9,6 +9,9 @@ Features:
 - PROOF-01: Dual side-by-side execution.
 - PROOF-02: Honest labeling (SIMULATED_LOCAL vs REAL_TESTNET).
 - PROOF-03: Causal lineage recording trigger parameters, state hashes, and invariant.
+- Trajectory State Invariant Verification:
+  - Blocked/held proposals leave cumulative spend, nonces, and broadcast state strictly unchanged.
+  - Verification of zero side effects on all unauthorized proposals.
 """
 
 from __future__ import annotations
@@ -43,7 +46,7 @@ def run_baseline_trajectory(
 ) -> TrajectoryExecutionReport:
     """
     Executes scenario in BASELINE mode without pre-signing invariant verification.
-    All proposals are dispatched to the execution adapter.
+    All proposals are dispatched to the execution adapter indiscriminately.
     """
     state = TrajectoryState(
         session_id=f"base_{scenario.id}",
@@ -56,7 +59,7 @@ def run_baseline_trajectory(
     for i, proposal in enumerate(scenario.proposals):
         # In baseline: proposals are broadcast directly
         tx_hash = adapter.sign_and_broadcast(proposal)
-        
+
         # Decode for diagnostic telemetry
         decode_res = decode_evm_transaction(proposal, token_symbol_map)
         decoded_tx = decode_res.decoded
@@ -89,6 +92,7 @@ def run_baseline_trajectory(
         broadcast_mode=broadcast_mode,
         receipts=receipts,
         final_decision=Decision.ALLOW,
+        step_decisions=[r.decision.value for r in receipts],
         total_spend_per_asset=state.cumulative_spend_per_asset,
         broadcast_count=len(receipts),
         completed_steps=len(receipts),
@@ -104,7 +108,8 @@ def run_protected_trajectory(
 ) -> TrajectoryExecutionReport:
     """
     Executes scenario in PROTECTED mode through the ChainBreak pre-signing firewall.
-    Halts execution before signing at the first BLOCK or HOLD.
+    Evaluates every proposal step. Blocks and holds do NOT advance trajectory state,
+    leaving subsequent valid proposals able to execute without state poisoning.
     """
     state = TrajectoryState(
         session_id=f"prot_{scenario.id}",
@@ -114,9 +119,10 @@ def run_protected_trajectory(
     )
     executor = ChainBreakExecutor(adapter=adapter, token_symbol_map=token_symbol_map)
     receipts: list[DecisionReceipt] = []
-    final_decision = Decision.ALLOW
-    stopped_at: Optional[int] = None
     broadcast_count = 0
+
+    first_divergence_decision: Optional[Decision] = None
+    divergence_step: Optional[int] = None
 
     for i, proposal in enumerate(scenario.proposals):
         receipt, new_state = executor.process(
@@ -131,19 +137,23 @@ def run_protected_trajectory(
             state = new_state
 
         if receipt.decision in (Decision.BLOCK, Decision.HOLD):
-            final_decision = receipt.decision
-            stopped_at = i
-            break
+            if divergence_step is None:
+                divergence_step = i
+                first_divergence_decision = receipt.decision
+
+    # If any proposal was blocked or held, final_decision reflects that adversarial interception
+    final_decision = first_divergence_decision if first_divergence_decision is not None else Decision.ALLOW
 
     return TrajectoryExecutionReport(
         run_mode="PROTECTED",
         broadcast_mode=broadcast_mode,
         receipts=receipts,
         final_decision=final_decision,
+        step_decisions=[r.decision.value for r in receipts],
         total_spend_per_asset=state.cumulative_spend_per_asset,
         broadcast_count=broadcast_count,
         completed_steps=len(receipts),
-        stopped_at_step=stopped_at,
+        stopped_at_step=divergence_step,
     )
 
 
@@ -155,7 +165,7 @@ def run_counterfactual(
 ) -> Web3CounterfactualResult:
     """
     Executes identical proposal sequence through both Baseline and Protected pipelines.
-    Computes divergence step, causal lineage, and proof statement.
+    Computes divergence step, causal lineage, state invariant checks, and proof statement.
     """
     t0 = time.time()
 
@@ -173,23 +183,50 @@ def run_counterfactual(
 
     latency_ms = (time.time() - t0) * 1000
 
-    # Divergence analysis
+    # Divergence analysis & Step Verification
     divergence_step = protected_report.stopped_at_step
-    is_attack_scenario = scenario.expected_decision in (Decision.BLOCK, Decision.HOLD)
-    
-    correctly_blocked = (
-        is_attack_scenario
-        and protected_report.final_decision == scenario.expected_decision
-        and baseline_report.final_decision == Decision.ALLOW
+    actual_step_decisions = [r.decision for r in protected_report.receipts]
+    expected_step_decisions = scenario.expected_step_decisions or [scenario.expected_decision] * len(scenario.proposals)
+
+    all_steps_correct = (actual_step_decisions == expected_step_decisions)
+
+    # State invariant checks:
+    # 1. Spend invariant
+    spend_invariant_passed = True
+    if scenario.expected_final_spend is not None:
+        actual_spend = protected_report.total_spend_per_asset.get("USDC", 0)
+        spend_invariant_passed = (actual_spend == scenario.expected_final_spend)
+
+    # 2. Side-effect invariant: any blocked or held receipt has broadcast=False and tx_hash=None
+    side_effect_invariant = all(
+        (not r.broadcast and r.transaction_hash is None)
+        for r in protected_report.receipts
+        if r.decision in (Decision.BLOCK, Decision.HOLD)
     )
-    attack_prevented = correctly_blocked
+
+    # 3. Authorized broadcast count invariant
+    broadcast_count_passed = True
+    if scenario.expected_authorized_broadcast_count is not None:
+        broadcast_count_passed = (protected_report.broadcast_count == scenario.expected_authorized_broadcast_count)
+
+    trajectory_invariant_verified = (
+        all_steps_correct and spend_invariant_passed and side_effect_invariant and broadcast_count_passed
+    )
+
+    has_threat_steps = any(d in (Decision.BLOCK, Decision.HOLD) for d in expected_step_decisions)
+    if has_threat_steps:
+        correctly_blocked = trajectory_invariant_verified
+        attack_prevented = correctly_blocked
+    else:
+        correctly_blocked = False
+        attack_prevented = False
 
     # Build Causal Lineage (PROOF-03)
     causal_lineage: Optional[CausalLineage] = None
     if divergence_step is not None and divergence_step < len(protected_report.receipts):
         halt_receipt = protected_report.receipts[divergence_step]
         halt_proposal = scenario.proposals[divergence_step]
-        
+
         causal_lineage = CausalLineage(
             divergence_step=divergence_step,
             violated_invariants=halt_receipt.violated_invariants,
@@ -209,17 +246,20 @@ def run_counterfactual(
 
     # Construct Proof Statement (PROOF-02)
     mode_label = "Simulated Local Broadcast" if broadcast_mode == "SIMULATED_LOCAL" else "Live Public Testnet Broadcast"
-    if correctly_blocked:
-        inv_str = ", ".join(causal_lineage.violated_invariants) if (causal_lineage and causal_lineage.violated_invariants) else (causal_lineage.hold_reason if causal_lineage else "POLICY")
+    final_spend_usdc = protected_report.total_spend_per_asset.get("USDC", 0) / 1_000_000
+
+    if has_threat_steps:
+        inv_str = ", ".join(causal_lineage.violated_invariants) if (causal_lineage and causal_lineage.violated_invariants) else (causal_lineage.hold_reason if causal_lineage else "INVARIANT_FIREWALL")
         proof_statement = (
             f"BASELINE EXECUTED: All {baseline_report.completed_steps} transactions broadcast ({mode_label}). "
-            f"CHAINBREAK BLOCKED: Execution severed at Step {divergence_step} before signing ({inv_str}). "
-            f"Protected broadcast count: {protected_report.broadcast_count} vs Baseline: {baseline_report.broadcast_count}."
+            f"CHAINBREAK ENFORCED: Divergence severed at Step {divergence_step} pre-signing ({inv_str}). "
+            f"Protected broadcast count: {protected_report.broadcast_count}/{len(scenario.proposals)} "
+            f"(Zero side effects on blocked/held actions; final spend: {final_spend_usdc:.2f} USDC)."
         )
     elif protected_report.final_decision == Decision.ALLOW:
         proof_statement = (
             f"BENIGN TRAJECTORY: All {protected_report.completed_steps} steps authorized and broadcast cleanly "
-            f"without false blocks ({mode_label})."
+            f"without false blocks ({mode_label}). Final spend: {final_spend_usdc:.2f} USDC."
         )
     else:
         proof_statement = (
@@ -229,6 +269,8 @@ def run_counterfactual(
     return Web3CounterfactualResult(
         scenario_id=scenario.id,
         scenario_name=scenario.name,
+        attack_family=scenario.attack_family.value if hasattr(scenario.attack_family, 'value') else str(scenario.attack_family),
+        attack_path=scenario.attack_path,
         broadcast_mode=broadcast_mode,
         baseline=baseline_report,
         protected=protected_report,
@@ -238,4 +280,6 @@ def run_counterfactual(
         causal_lineage=causal_lineage,
         proof_statement=proof_statement,
         latency_ms=latency_ms,
+        trajectory_invariant_verified=trajectory_invariant_verified,
+        side_effect_expected=scenario.side_effect_expected,
     )

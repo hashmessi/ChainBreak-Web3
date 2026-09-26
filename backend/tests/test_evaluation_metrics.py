@@ -11,12 +11,12 @@ client = TestClient(app)
 
 
 def test_eval01_and_eval02_evaluate_all_scenarios():
-    """Verify EVAL-01 & EVAL-02: Full 12-scenario benchmark metrics."""
+    """Verify EVAL-01 & EVAL-02: Full 15-scenario benchmark metrics across 5 attack families."""
     report = evaluate_all_web3_scenarios(substrate="LOCAL")
 
     assert isinstance(report, Web3EvaluationReport)
-    assert report.total_scenarios == 12
-    assert len(report.results) == 12
+    assert report.total_scenarios == 15
+    assert len(report.results) == 15
 
     # Verify 100% attack prevention
     assert report.prevention_rate == 1.0
@@ -27,6 +27,9 @@ def test_eval01_and_eval02_evaluate_all_scenarios():
 
     # Verify sub-100ms decision latency
     assert report.avg_latency_ms < 100.0
+
+    # Verify 5 attack families are populated
+    assert len(report.family_breakdown) == 5
 
     # Verify each scenario row
     for row in report.results:
@@ -40,18 +43,18 @@ def test_eval02_api_evaluate_endpoint():
     assert res.status_code == 200
     data = res.json()
 
-    assert data["total_scenarios"] == 12
+    assert data["total_scenarios"] == 15
     assert data["prevention_rate"] == 1.0
     assert data["false_block_rate"] == 0.0
-    assert len(data["results"]) == 12
+    assert len(data["results"]) == 15
 
-    # Check that W3 (recipient mutation) and W5 (trajectory budget breach) are recorded
-    w3_row = next(r for r in data["results"] if r["scenario_id"] == "W3")
-    assert w3_row["expected_decision"] == "BLOCK"
-    assert w3_row["actual_decision"] == "BLOCK"
-    assert w3_row["broadcast_suppressed"] is True
+    # Check that W04 (Trust-Then-Hijack) and W03 (Slow-Drip Drain) and W15 (Adaptive Kill Chain) are recorded
+    w04_row = next(r for r in data["results"] if r["scenario_id"] == "W04")
+    assert w04_row["expected_decision"] == "BLOCK"
+    assert w04_row["actual_decision"] == "BLOCK"
+    assert w04_row["broadcast_suppressed"] is True
 
-    w5_row = next(r for r in data["results"] if r["scenario_id"] == "W5")
-    assert w5_row["expected_decision"] == "BLOCK"
-    assert w5_row["actual_decision"] == "BLOCK"
-    assert w5_row["broadcast_suppressed"] is True
+    w15_row = next(r for r in data["results"] if r["scenario_id"] == "W15")
+    assert w15_row["expected_decision"] == "BLOCK"
+    assert w15_row["actual_decision"] == "BLOCK"
+    assert w15_row["broadcast_suppressed"] is True

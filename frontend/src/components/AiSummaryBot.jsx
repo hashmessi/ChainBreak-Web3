@@ -3,9 +3,8 @@ import { X, Sparkles } from 'lucide-react';
 import { getJudgesExplainer } from '../utils/explainer';
 
 /**
- * AiSummaryBot — Clean, neat AI summary drawer matching Screenshot 3
- * Retains all claims across scenario executions:
- * "The Ai summary bot for every new claim, the old claims also retain."
+ * AiSummaryBot — Shows summary for the CURRENT scenario run only.
+ * Each new run replaces the previous summary (no history accumulation).
  */
 export default function AiSummaryBot({
   runReport = null,
@@ -108,18 +107,12 @@ export default function AiSummaryBot({
     }
   };
 
-  // Add new claim when execution arrives while retaining older claims
+  // Replace claim on every new execution — only show the current scenario
   useEffect(() => {
     if (runReport || counterfactualResult || selectedScenario) {
       const newClaim = buildClaim(runReport, counterfactualResult, selectedScenario);
       if (newClaim) {
-        setClaims((prev) => {
-          // Avoid duplicate adjacent identical claims
-          if (prev.length > 0 && prev[0].scenarioId === newClaim.scenarioId && prev[0].status === newClaim.status) {
-            return prev;
-          }
-          return [newClaim, ...prev];
-        });
+        setClaims([newClaim]); // always replace, never accumulate
         setHasNewResult(true);
         const timer = setTimeout(() => setHasNewResult(false), 3000);
         return () => clearTimeout(timer);
@@ -177,11 +170,6 @@ export default function AiSummaryBot({
           <div className="ai-bot-panel-title-row">
             <Sparkles size={14} style={{ color: 'var(--color-compass-gold)' }} />
             <span className="ai-bot-panel-title">AI Summary</span>
-            {claims.length > 1 && (
-              <span className="badge-pill" style={{ padding: '1px 6px', fontSize: '9px' }}>
-                {claims.length} CLAIMS
-              </span>
-            )}
           </div>
           <button type="button" className="ai-bot-close" onClick={() => setOpen(false)} aria-label="Close Summary">
             <X size={14} />
@@ -201,8 +189,6 @@ export default function AiSummaryBot({
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '12px',
-                  paddingBottom: idx < claims.length - 1 ? '18px' : '0',
-                  borderBottom: idx < claims.length - 1 ? '1px solid var(--color-graphite)' : 'none',
                 }}
               >
                 {/* Status indicator */}

@@ -1,0 +1,24 @@
+{
+  "name": "chainbreak-web3",
+  "version": "2.0.0",
+  "description": "ChainBreak — Runtime AI Agent Security Invariant Engine",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000",
+    "start": "uvicorn backend.main:app --host 0.0.0.0 --port 8000",
+    "test": "pytest",
+    "verify": "python scripts/verify_deployment.py"
+  },
+  "keywords": [
+    "ai-security",
+    "web3",
+    "smart-contracts",
+    "invariants",
+    "runtime-protection",
+    "agent-firewall"
+  ],
+  "author": "ChainBreak Core Team",
+  "license": "Apache-2.0"
+}

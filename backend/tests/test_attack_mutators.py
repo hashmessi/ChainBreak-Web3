@@ -137,15 +137,20 @@ def test_attack04_unauthorized_method_mutation():
     assert mutated.data.startswith("0x095ea7b3")
 
 
-def test_w1_through_w12_corpus_integrity():
-    """Verify all 12 standard scenarios (W1–W12) exist and validate."""
+def test_w1_through_w15_corpus_integrity():
+    """Verify all 15 brutal scenarios (W01–W15) exist and validate."""
     scenarios = get_all_scenarios()
-    assert len(scenarios) == 12
+    assert len(scenarios) == 15
 
-    expected_ids = [f"W{i}" for i in range(1, 13)]
+    expected_ids = [f"W{i:02d}" for i in range(1, 16)]
     for sid in expected_ids:
         sc = get_scenario_by_id(sid)
         assert sc is not None
         assert sc.id == sid
         assert len(sc.proposals) >= 1
         assert sc.intent is not None
+
+    # Verify backward compatibility lookup by short ID (e.g. W1 for W01)
+    assert get_scenario_by_id("W1") is not None
+    assert get_scenario_by_id("W1").id == "W01"
+

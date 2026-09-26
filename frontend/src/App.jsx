@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  Shield, Layers, GitCompare,
+  Shield, Layers, GitCompare, BarChart3,
   AlertCircle, Play
 } from 'lucide-react';
 import ScenarioSelector from './components/ScenarioSelector';
@@ -9,11 +9,14 @@ import AiSummaryBot from './components/AiSummaryBot';
 import BenchmarkModal from './components/BenchmarkModal';
 import RunTimeline from './components/RunTimeline';
 import CounterfactualProof from './components/CounterfactualProof';
+import PitchSequenceBar from './components/PitchSequenceBar';
+import BrutalMatrix from './components/BrutalMatrix';
 
 const TABS = [
-  { key: 'scenarios', label: 'Scenarios', icon: Shield, badgeKey: 'scenariosCount' },
+  { key: 'scenarios', label: '15 Scenarios', icon: Shield, badgeKey: 'scenariosCount' },
   { key: 'pipeline', label: 'Interception', icon: Layers, badgeKey: 'stepCount' },
-  { key: 'counterfactual', label: 'Proof', icon: GitCompare, badgeKey: 'proofReady' },
+  { key: 'counterfactual', label: 'Dual Proof', icon: GitCompare, badgeKey: 'proofReady' },
+  { key: 'matrix', label: 'Brutal Matrix', icon: BarChart3, badgeKey: 'matrixCount' },
 ];
 
 export default function App() {
@@ -21,6 +24,9 @@ export default function App() {
   const [scenarios, setScenarios] = useState([]);
   const [fixtures, setFixtures] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Guard against redundant auto-runs when handleRunProof runs
+  const isRunningProofRef = useRef(false);
 
   // Active Selection
   const [selectedScenario, setSelectedScenario] = useState(null);
@@ -62,8 +68,8 @@ export default function App() {
           if (mounted) {
             const scens = scenData.scenarios || [];
             setScenarios(scens);
-            // Default to W3 Flagship attack
-            const initial = scens.find((s) => s.id === 'W3') || scens[0];
+            // Default to W04 Trust-Then-Hijack flagship attack
+            const initial = scens.find((s) => s.id === 'W04') || scens.find((s) => s.id === 'W4') || scens[0];
             setSelectedScenario(initial);
 
             // Pre-load counterfactual proof for default flagship so Proof tab is primed
@@ -103,14 +109,14 @@ export default function App() {
     return () => { mounted = false; };
   }, []);
 
-  // Fetch benchmark evaluation report for modal
+  // Fetch benchmark evaluation report for modal & matrix tab
   const fetchBenchmarkReport = async () => {
     setIsBenchmarkLoading(true);
     try {
       const res = await fetch('/api/v2/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ substrate: activeSubstrate }),
+        body: JSON.stringify({ substrate: activeSubstrate, include_fuzz: true }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -122,6 +128,13 @@ export default function App() {
       setIsBenchmarkLoading(false);
     }
   };
+
+  // Auto-fetch benchmark evaluation when Matrix tab is selected
+  useEffect(() => {
+    if (activeTab === 'matrix' && !benchmarkReport && !isBenchmarkLoading) {
+      fetchBenchmarkReport();
+    }
+  }, [activeTab]);
 
   const handleOpenBenchmarkModal = () => {
     setIsBenchmarkModalOpen(true);
@@ -138,7 +151,81 @@ export default function App() {
     setSelectedScenario(scenario);
   };
 
-  // Execute single run
+  // Low-level counterfactual fetch — does NOT change tabs (used by handleRunProof)
+  const fetchCounterfactualRaw = async (scenarioToRun, substrate) => {
+    if (!scenarioToRun) return null;
+    const res = await fetch('/api/v2/counterfactual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scenario_id: scenarioToRun.id,
+        substrate: substrate,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Counterfactual run failed');
+    }
+    return res.json();
+  };
+
+  // Run Proof Flow — Strictly Enforces ChainBreak v1 Demo Sequence:
+  // Step 1: User clicks "RUN PROOF"
+  // Step 2: Navigate to Inspect (Pipeline/Interception) tab immediately.
+  //         User inspects the scenario: which step is allowed, which step is attacked/blocked.
+  // Step 3: Counterfactual proof is primed and marked PROVED. User proceeds to Proof tab via tab bar or "VIEW DUAL PROOF →" CTA.
+  const handleRunProof = async (scen) => {
+    if (!scen) return;
+    isRunningProofRef.current = true;
+    setSelectedScenario(scen);
+    setIsRunning(true);
+    setRunError(null);
+    setActiveStepIndex(0);
+
+    // Step 2: Switch to Inspect (Pipeline / Interception) tab IMMEDIATELY
+    setActiveTab('pipeline');
+
+    try {
+      // Concurrently run single execution (populates pipeline) & fetch counterfactual proof
+      const [runRes, proof] = await Promise.all([
+        fetch('/api/v2/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scenario_id: scen.id,
+            run_mode: activeRunMode,
+            substrate: activeSubstrate,
+          }),
+        }),
+        fetchCounterfactualRaw(scen, activeSubstrate),
+      ]);
+
+      if (runRes.ok) {
+        const runData = await runRes.json();
+        setRunReport(runData);
+      }
+      if (proof) {
+        setCounterfactualResult(proof);
+      }
+
+      // CRITICAL: DO NOT call setActiveTab('counterfactual') or open AI bot!
+      // The user remains on the Inspect tab to see:
+      // 1. Run Proof initiated
+      // 2. Inspect: examine allowed vs blocked steps
+      // 3. Proof: user proceeds to Dual Proof tab when ready
+    } catch (err) {
+      console.error('Run proof failed:', err);
+      setRunError(err.message);
+    } finally {
+      setIsRunning(false);
+      isRunningProofRef.current = false;
+    }
+  };
+
+  // Handler for pitch bar (now just a label — no interactive steps)
+  const handlePitchStepSelect = () => {};
+
+  // Execute single run (used by useEffect auto-run on scenario change)
   const handleExecuteRun = async (scenarioToRun = selectedScenario, mode = activeRunMode, substrate = activeSubstrate) => {
     if (!scenarioToRun) return;
     setIsRunning(true);
@@ -171,31 +258,17 @@ export default function App() {
     }
   };
 
-  // Execute counterfactual proof
+  // Execute counterfactual proof — used by standalone Proof tab "RUN AGAIN" CTA
   const handleExecuteCounterfactual = async (scenarioToRun = selectedScenario, substrate = activeSubstrate) => {
     if (!scenarioToRun) return;
     setIsRunning(true);
     setRunError(null);
 
     try {
-      const res = await fetch('/api/v2/counterfactual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scenario_id: scenarioToRun.id,
-          substrate: substrate,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'Counterfactual run failed');
+      const proof = await fetchCounterfactualRaw(scenarioToRun, substrate);
+      if (proof) {
+        setCounterfactualResult(proof);
       }
-
-      const proof = await res.json();
-      setCounterfactualResult(proof);
-      setActiveTab('counterfactual');
-      setIsAiBotOpen(true); // Open AI summary drawer automatically upon proof run
     } catch (err) {
       console.error('Counterfactual failed:', err);
       setRunError(err.message);
@@ -206,19 +279,18 @@ export default function App() {
 
   // Trigger run whenever selected scenario, run mode, or substrate changes
   useEffect(() => {
-    if (selectedScenario) {
+    if (selectedScenario && !isRunningProofRef.current) {
       handleExecuteRun(selectedScenario, activeRunMode, activeSubstrate);
     }
   }, [selectedScenario?.id, activeRunMode, activeSubstrate]);
 
-  const flagshipScenario = scenarios.find((s) => s.id === 'W3') || scenarios[0];
+  const flagshipScenario = scenarios.find((s) => s.id === 'W04') || scenarios.find((s) => s.id === 'W4') || scenarios.find((s) => s.id === 'W02') || scenarios[0];
   const stepCount = selectedScenario?.proposals?.length || selectedScenario?.actions?.length || 1;
 
   return (
     <div className="app-canvas min-h-screen bg-obsidian text-chalk-soft font-sans">
       {/* ====================================================================
-          Top Navigation Header — Exactly Matching Reference Screenshots 1, 2, 3
-          Clean, uncluttered, no redundant mode toggles in master header
+          Top Navigation Header — Unified Master Cockpit Bar
           ==================================================================== */}
       <header className="top-nav">
         <div className="cockpit-container top-nav-inner">
@@ -232,7 +304,7 @@ export default function App() {
                   <path d="M12 7V17M7 12H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
                 </svg>
               </div>
-              <span>ChainBreak</span>
+              <span>ChainBreak<span style={{ color: 'var(--color-compass-gold)', fontWeight: 800 }}>-Web3</span></span>
             </div>
             <div className="brand-subtitle">
               RUNTIME SECURITY INVARIANT ENGINE
@@ -241,10 +313,32 @@ export default function App() {
 
           {/* Right Header Navigation & Actions */}
           <div className="nav-actions">
+            {/* Substrate Selector: LOCAL EVM / SEPOLIA TESTNET */}
+            <div className="substrate-toggle-group" title="Select EVM Execution Substrate">
+              <button
+                type="button"
+                className={`substrate-toggle-btn ${activeSubstrate === 'LOCAL' ? 'active-local' : ''}`}
+                onClick={() => setActiveSubstrate('LOCAL')}
+                id="btn-substrate-local"
+              >
+                <span className="substrate-dot local" />
+                <span>LOCAL EVM</span>
+              </button>
+              <button
+                type="button"
+                className={`substrate-toggle-btn ${activeSubstrate === 'TESTNET' ? 'active-testnet' : ''}`}
+                onClick={() => setActiveSubstrate('TESTNET')}
+                id="btn-substrate-testnet"
+              >
+                <span className="substrate-dot testnet" />
+                <span>SEPOLIA RPC</span>
+              </button>
+            </div>
+
             {/* Live Engine Status Pill */}
             <div className="badge-pill" title="Deterministic Invariant Engine Status">
               <span className={`pulse-dot ${health?.status === 'ok' ? '' : 'error'}`} />
-              <span>{health?.status === 'ok' ? 'ENGINE LIVE / 8000' : 'ENGINE OFFLINE'}</span>
+              <span>{health?.status === 'ok' ? 'ENGINE LIVE · 8000' : 'ENGINE OFFLINE'}</span>
             </div>
 
             {/* AI Summary Assistant Robot Button */}
@@ -295,7 +389,7 @@ export default function App() {
                 <Icon size={14} style={{ color: isActive ? 'var(--color-chalk)' : 'inherit' }} />
                 <span>{tab.label}</span>
                 {tab.badgeKey === 'scenariosCount' && (
-                  <span className="tab-badge">{scenarios.length || 12}</span>
+                  <span className="tab-badge">{scenarios.length || 15}</span>
                 )}
                 {tab.badgeKey === 'stepCount' && (
                   <span className="tab-badge">{stepCount}</span>
@@ -304,6 +398,9 @@ export default function App() {
                   <span className="tab-badge proof-ready">
                     {counterfactualResult ? 'PROVED' : 'READY'}
                   </span>
+                )}
+                {tab.badgeKey === 'matrixCount' && (
+                  <span className="tab-badge">15/15</span>
                 )}
               </button>
             );
@@ -323,6 +420,9 @@ export default function App() {
               <span>{runError}</span>
             </div>
           )}
+
+          {/* Autonomous Attack Laboratory tagline bar */}
+          <PitchSequenceBar />
 
           {/* ──────────────────────────────────────────────────────────────────
               TAB 1: SCENARIOS (The Home Cockpit View matching v1 screenshot)
@@ -361,8 +461,7 @@ export default function App() {
                       className="btn-flagship-launch"
                       disabled={isRunning}
                       onClick={() => {
-                        handleSelectScenario(flagshipScenario);
-                        handleExecuteCounterfactual(flagshipScenario, activeSubstrate);
+                        handleRunProof(flagshipScenario);
                       }}
                       id="btn-run-flagship-proof"
                     >
@@ -387,10 +486,7 @@ export default function App() {
                 }}
                 onRunCounterfactual={(id) => {
                   const s = scenarios.find((x) => x.id === id);
-                  if (s) {
-                    handleSelectScenario(s);
-                    handleExecuteCounterfactual(s, activeSubstrate);
-                  }
+                  if (s) handleRunProof(s);
                 }}
                 isLoading={isRunning}
               />
@@ -412,11 +508,9 @@ export default function App() {
                 divergenceStep={counterfactualResult?.divergence_step}
                 onRunFeatured={(id) => {
                   const s = scenarios.find((x) => x.id === id);
-                  if (s) {
-                    handleSelectScenario(s);
-                    handleExecuteCounterfactual(s, activeSubstrate);
-                  }
+                  if (s) handleRunProof(s);
                 }}
+                onViewProof={() => setActiveTab('counterfactual')}
               />
             </div>
           )}
@@ -435,11 +529,33 @@ export default function App() {
                 }}
                 onRunFeatured={(id) => {
                   const s = scenarios.find((x) => x.id === id);
+                  if (s) handleRunProof(s);
+                }}
+              />
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────────────────────────────
+              TAB 4: BRUTAL MATRIX (12 Attempts to Break Autonomous Agent)
+              ────────────────────────────────────────────────────────────────── */}
+          {activeTab === 'matrix' && (
+            <div>
+              <BrutalMatrix
+                report={benchmarkReport}
+                isLoading={isBenchmarkLoading}
+                onRunBenchmark={fetchBenchmarkReport}
+                onSelectScenario={(scenId) => {
+                  const s = scenarios.find((x) => x.id === scenId);
                   if (s) {
                     handleSelectScenario(s);
-                    handleExecuteCounterfactual(s, activeSubstrate);
+                    setActiveTab('pipeline');
                   }
                 }}
+                onRunDualProof={(scenId) => {
+                  const s = scenarios.find((x) => x.id === scenId);
+                  if (s) handleRunProof(s);
+                }}
+                activeSubstrate={activeSubstrate}
               />
             </div>
           )}

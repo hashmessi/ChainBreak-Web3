@@ -131,6 +131,21 @@
 
 ---
 
+---
+
+### Phase 13 — 15 Brutal Scenarios Attack Laboratory
+**Goal:** Deploy 15 multi-step adversarial trajectory scenarios categorized into 5 attack families (plus bonus W16 fuzz campaign) demonstrating cumulative state accumulation, zero side effects on blocks/holds, and resilience against adaptive multi-vector compromise.
+**Requirements:** `BRUTAL-01` to `BRUTAL-06`
+**Success Criteria:**
+1. 15 full trajectory scenarios (W01–W15) answering user authorization, agent history, accumulated state, attacker adaptation, ChainBreak prevention, and zero side effects.
+2. 5 distinct attack families: Baseline & boundaries (W01-W03), Intent attacks (W04, W05, W07, W11), Capability attacks (W08-W10), State attacks (W06, W12, W15), Fail-closed attacks (W13, W14).
+3. Zero state leakage: blocked/held proposals leave cumulative spend, nonces, and broadcast state strictly unchanged.
+4. W15 Boss Fight (Adaptive Kill Chain) validates multiple attack modes with mixed BLOCK/HOLD/ALLOW surviving repeated proposals.
+5. Bonus W16 Mutation-Fuzz Campaign runs automated parameter mutations with 100% deterministic classification.
+6. 90-second demo sequence (W01, W04, W03, W13, W15, Proof) integrated into developer cockpit.
+
+---
+
 ## Progress Overview
 
 | Phase | Description | Status | Requirements |
@@ -146,5 +161,7 @@
 | Phase 9 | Evaluation Suite & Benchmark Metrics | Complete | `EVAL-01` to `EVAL-03` |
 | Phase 10 | Submission Package & Hackathon Assets | Complete | Hackathon Deliverables |
 | Phase 11 | Final Hardening & Verification | Complete | Production Verification |
-| Phase 12 | Editorial Web3 Cockpit Polish & AI Summary Bot | In Progress | `UI-IMPECCABLE-01` to `04` |
+| Phase 12 | Editorial Web3 Cockpit Polish & AI Summary Bot | Complete | `UI-IMPECCABLE-01` to `04` |
+| Phase 13 | 15 Brutal Scenarios Attack Laboratory | Complete | `BRUTAL-01` to `06` |
+
 

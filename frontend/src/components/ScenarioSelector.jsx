@@ -1,58 +1,56 @@
 import React, { useState, useMemo } from 'react';
-import { Split, ShieldAlert, ShieldCheck, AlertTriangle, HelpCircle, Terminal, Flame, Layers, ArrowUpRight } from 'lucide-react';
+import { Split, ShieldAlert, ShieldCheck, AlertTriangle, HelpCircle, Terminal, Flame, Layers, ArrowUpRight, Lock, Zap } from 'lucide-react';
 
 const CATEGORIES = [
-  { key: 'ALL', label: 'ALL', icon: Terminal },
-  { key: 'ATTACK', label: 'ATTACKS', icon: Flame },
-  { key: 'SAFE', label: 'SAFE', icon: ShieldCheck },
-  { key: 'NEAR_MISS', label: 'NEAR-MISS', icon: AlertTriangle },
-  { key: 'MALFORMED', label: 'MALFORMED', icon: HelpCircle },
+  { key: 'ALL', label: 'ALL SCENARIOS', icon: Terminal },
+  { key: 'FAMILY_A', label: 'A: BASELINE & BOUNDS', icon: ShieldCheck },
+  { key: 'FAMILY_B', label: 'B: INTENT ATTACKS', icon: Flame },
+  { key: 'FAMILY_C', label: 'C: CAPABILITY', icon: AlertTriangle },
+  { key: 'FAMILY_D', label: 'D: STATE ATTACKS', icon: Layers },
+  { key: 'FAMILY_E', label: 'E: FAIL-CLOSED', icon: HelpCircle },
 ];
 
-/**
- * ScenarioSelector — Full-width grid layout for Scenarios view
- * Developer-grade cards: ID + name + category + step count + expected outcome + inline CTAs
- */
+const FAMILY_COLORS = {
+  FAMILY_A: { color: '#22c55e', bg: 'rgba(34, 197, 94, 0.12)', border: 'rgba(34, 197, 94, 0.35)' },
+  FAMILY_B: { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.35)' },
+  FAMILY_C: { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.12)', border: 'rgba(59, 130, 246, 0.35)' },
+  FAMILY_D: { color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.12)', border: 'rgba(167, 139, 250, 0.35)' },
+  FAMILY_E: { color: '#f472b6', bg: 'rgba(244, 114, 182, 0.12)', border: 'rgba(244, 114, 182, 0.35)' },
+};
+
 export default function ScenarioSelector({
   scenarios = [],
   selectedScenario = null,
   onSelectScenario,
   onRunCounterfactual,
   onInspectScenario,
-  isLoading = false
+  isLoading = false,
 }) {
   const [activeCategory, setActiveCategory] = useState('ALL');
 
-  const normalizeCat = (cat) => {
-    const c = (cat || '').toUpperCase();
-    if (c === 'FAILURE' || c === 'UNKNOWN_TOOL') return 'MALFORMED';
-    return c;
+  const getFamilyKey = (scen) => {
+    const fam = (scen.attack_family || '').toUpperCase();
+    if (fam.includes('FAMILY A') || scen.id === 'W01' || scen.id === 'W02' || scen.id === 'W03') return 'FAMILY_A';
+    if (fam.includes('FAMILY B') || scen.id === 'W04' || scen.id === 'W05' || scen.id === 'W07' || scen.id === 'W11') return 'FAMILY_B';
+    if (fam.includes('FAMILY C') || scen.id === 'W08' || scen.id === 'W09' || scen.id === 'W10') return 'FAMILY_C';
+    if (fam.includes('FAMILY D') || scen.id === 'W06' || scen.id === 'W12' || scen.id === 'W15') return 'FAMILY_D';
+    if (fam.includes('FAMILY E') || scen.id === 'W13' || scen.id === 'W14') return 'FAMILY_E';
+    return 'ALL';
   };
 
   const filteredScenarios = useMemo(() => {
     if (activeCategory === 'ALL') return scenarios;
-    return scenarios.filter((s) => normalizeCat(s.category) === activeCategory);
+    return scenarios.filter((s) => getFamilyKey(s) === activeCategory);
   }, [scenarios, activeCategory]);
 
   const categoryCounts = useMemo(() => {
     const counts = { ALL: scenarios.length };
     scenarios.forEach((s) => {
-      const cat = normalizeCat(s.category);
-      counts[cat] = (counts[cat] || 0) + 1;
+      const fKey = getFamilyKey(s);
+      counts[fKey] = (counts[fKey] || 0) + 1;
     });
     return counts;
   }, [scenarios]);
-
-  const getCategoryBadgeClass = (category) => {
-    const cat = normalizeCat(category);
-    switch (cat) {
-      case 'ATTACK': return 'cat-attack';
-      case 'SAFE': return 'cat-safe';
-      case 'NEAR_MISS': return 'cat-near-miss';
-      case 'MALFORMED': return 'cat-failure';
-      default: return '';
-    }
-  };
 
   return (
     <div className="scenario-selector-container" id="scenario-selector-panel">
@@ -88,18 +86,21 @@ export default function ScenarioSelector({
           filteredScenarios.map((scen) => {
             const isSelected = selectedScenario && selectedScenario.id === scen.id;
             const actionCount = scen.proposals?.length || scen.actions?.length || 1;
-            const catNorm = normalizeCat(scen.category);
+            const famKey = getFamilyKey(scen);
+            const famStyle = FAMILY_COLORS[famKey] || { color: 'var(--color-smoke)', bg: 'var(--color-charcoal)', border: 'var(--color-slate)' };
+            const famLabel = scen.attack_family ? scen.attack_family.split(' — ')[1] || scen.attack_family : famKey;
 
-            const isAttack = catNorm === 'ATTACK';
-            const isSafe = catNorm === 'SAFE' || catNorm === 'NEAR_MISS';
-            const isMalformed = catNorm === 'MALFORMED';
+            const isAttack = scen.category === 'attack';
+            const isSafe = scen.category === 'safe';
+            const isMalformed = scen.category === 'malformed';
 
             const expBaseline = isAttack ? 'ALLOW (BREACH)' : isMalformed ? 'FAIL-OPEN' : 'ALLOW';
-            const expProtected = scen.expected_decision ||
-              (scen.expected_result === 'BLOCK' ? 'BLOCK' : scen.expected_result === 'HOLD' ? 'HOLD' : 'ALLOW');
+            const expProtected = scen.expected_decision || 'ALLOW';
 
             const expBaselineClass = isAttack ? 'val-block' : isMalformed ? 'val-hold' : 'val-allow';
             const expProtectedClass = expProtected === 'BLOCK' ? 'val-block' : expProtected === 'HOLD' ? 'val-hold' : 'val-allow';
+
+            const stepDecisions = scen.expected_step_decisions || [];
 
             return (
               <div
@@ -111,21 +112,56 @@ export default function ScenarioSelector({
                 <div className="scenario-card-top">
                   <div className="scenario-id-tag">
                     <span className="scen-number">{scen.id}</span>
-                    <span className={`scen-cat-badge ${getCategoryBadgeClass(scen.category)}`}>
-                      {catNorm.replace(/_/g, ' ')}
+                    <span
+                      className="scen-cat-badge"
+                      style={{
+                        color: famStyle.color,
+                        background: famStyle.bg,
+                        border: `1px solid ${famStyle.border}`,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {famLabel}
                     </span>
                   </div>
-                  <span className="scen-steps-count">
+                  <span className="scen-steps-count font-mono text-[10px]">
                     {actionCount} {actionCount === 1 ? 'STEP' : 'STEPS'}
                   </span>
                 </div>
 
                 <h4 className="scenario-card-name">{scen.name}</h4>
 
+                {scen.attack_path && (
+                  <div className="text-[11px] font-mono text-[var(--color-compass-gold)] mb-1 flex items-center gap-1">
+                    <span>PATH:</span> <span>{scen.attack_path}</span>
+                  </div>
+                )}
+
                 {scen.description && (
                   <p className="scenario-card-desc">
                     {scen.description}
                   </p>
+                )}
+
+                {/* Trajectory Step Pills */}
+                {stepDecisions.length > 0 && (
+                  <div className="flex items-center gap-1 my-2 flex-wrap">
+                    <span className="text-[9px] font-mono text-[var(--color-smoke)] mr-1">STEPS:</span>
+                    {stepDecisions.map((dec, sIdx) => {
+                      const pillCls = dec === 'BLOCK' ? 'text-violation-red bg-red-950/40 border-red-900/60' :
+                        dec === 'HOLD' ? 'text-amber-400 bg-amber-950/40 border-amber-900/60' :
+                        'text-emerald-400 bg-emerald-950/40 border-emerald-900/60';
+                      return (
+                        <span
+                          key={sIdx}
+                          className={`text-[9px] font-mono px-1 py-0.5 rounded border ${pillCls}`}
+                          title={`Step ${sIdx + 1}: ${dec}`}
+                        >
+                          T{sIdx + 1}:{dec[0]}
+                        </span>
+                      );
+                    })}
+                  </div>
                 )}
 
                 <div className="scenario-card-footer">

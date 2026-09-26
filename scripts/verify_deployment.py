@@ -19,16 +19,36 @@ import httpx
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
-BASE_URL = os.getenv("DEPLOYMENT_URL", "http://127.0.0.1:8000")
+BASE_URL = os.getenv("DEPLOYMENT_URL", "")
+
+
+def get_client():
+    from backend.main import app
+    from fastapi.testclient import TestClient
+
+    if BASE_URL:
+        print(f"Target URL: {BASE_URL} (Live Cloud Endpoint)")
+        return httpx.Client(base_url=BASE_URL, timeout=30.0)
+
+    # Check if local uvicorn is running on port 8000
+    try:
+        test_c = httpx.Client(base_url="http://127.0.0.1:8000", timeout=2.0)
+        res = test_c.get("/api/health")
+        if res.status_code == 200:
+            print("Target URL: http://127.0.0.1:8000 (Local Uvicorn Daemon)")
+            return test_c
+    except Exception:
+        pass
+
+    print("Target: In-Process FastAPI TestClient (Deterministic Engine)")
+    return TestClient(app)
 
 
 def run_verification():
     print(f"\n{'='*70}")
     print(f">> CHAINBREAK DEPLOYMENT VERIFICATION ENGINE")
-    print(f"Target URL: {BASE_URL}")
+    client = get_client()
     print(f"{'='*70}\n")
-
-    client = httpx.Client(base_url=BASE_URL, timeout=15.0)
 
     # 1. VERIFY BUILD
     print("Step 1: Verifying frontend & backend build artifacts...")
@@ -94,7 +114,7 @@ def run_verification():
     assert culprit.get("tool") == "send_external_summary", f"Offending tool unexpected: {culprit.get('tool')}"
     print(f"  ✓ AI flow verified: Step {culprit.get('step_index') + 1} ({culprit.get('tool')}) severed under {culprit.get('violations')}")
 
-    # 8. EXECUTE PRIMARY USER JOURNEY
+    # 8. EXECUTE PRIMARY USER JOURNEY (V1)
     print("\nStep 8: Executing primary user journey (Full 20-Scenario Benchmark Suite)...")
     eval_t0 = time.time()
     eval_res = client.post("/api/evaluate")
@@ -111,8 +131,30 @@ def run_verification():
     print(f"     - False Block Rate:   {report.get('false_block_rate')*100:.1f}%")
     print(f"     - Mean Invariant Latency: {report.get('avg_latency_ms'):.2f}ms")
 
+    # 9. VERIFY WEB3 V2 FIXTURES & SCENARIOS
+    print("\nStep 9: Verifying Web3 V2 scenario catalog & EVM fixtures...")
+    v2_scen_res = client.get("/api/v2/scenarios")
+    assert v2_scen_res.status_code == 200, f"Web3 scenarios endpoint returned HTTP {v2_scen_res.status_code}"
+    v2_scens = v2_scen_res.json().get("scenarios", [])
+    assert len(v2_scens) >= 15, f"Expected 15 Web3 scenarios, received {len(v2_scens)}"
+    v2_fix_res = client.get("/api/v2/fixtures")
+    assert v2_fix_res.status_code == 200, f"Web3 fixtures endpoint returned HTTP {v2_fix_res.status_code}"
+    print(f"  ✓ Web3 V2 catalog verified: {len(v2_scens)} EVM scenarios, Sepolia fixtures loaded")
+
+    # 10. VERIFY WEB3 V2 FLAGSHIP (W04) DUAL PROOF & BENCHMARK
+    print("\nStep 10: Verifying Web3 V2 flagship (W04) counterfactual & evaluation suite...")
+    w4_res = client.post("/api/v2/counterfactual", json={"scenario_id": "W04", "substrate": "LOCAL"})
+    assert w4_res.status_code == 200, f"Web3 W04 counterfactual returned HTTP {w4_res.status_code}"
+    w4_data = w4_res.json()
+    assert w4_data.get("attack_prevented") is True or w4_data.get("correctly_blocked") is True, "W04 attack not prevented"
+    
+    v2_eval_res = client.post("/api/v2/evaluate", json={"substrate": "LOCAL", "include_fuzz": False})
+    assert v2_eval_res.status_code == 200, f"Web3 evaluation returned HTTP {v2_eval_res.status_code}"
+    v2_report = v2_eval_res.json()
+    print(f"  ✓ Web3 V2 benchmark suite verified: {len(v2_report.get('results', []))} scenarios, prevention rate: {v2_report.get('prevention_rate')*100:.0f}%")
+
     print(f"\n{'='*70}")
-    print("[SUCCESS] ALL 8 POST-DEPLOYMENT VERIFICATION CHECKS PASSED (100% SUCCESS)")
+    print("[SUCCESS] ALL 10 POST-DEPLOYMENT VERIFICATION CHECKS PASSED (100% SUCCESS)")
     print(f"{'='*70}\n")
 
 

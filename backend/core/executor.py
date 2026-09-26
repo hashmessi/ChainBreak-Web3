@@ -74,6 +74,7 @@ class ChainBreakExecutor:
             trajectory=trajectory,
             decoded=decode_result.decoded,
             decode_result=decode_result,
+            proposal=proposal,
         )
 
         # ── Step 3: Enforce Execution Boundary (GATE-02) ───────────────────────

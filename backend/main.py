@@ -14,10 +14,13 @@ import sys
 import time
 from pathlib import Path
 
-# Ensure backend directory is in sys.path
+# Ensure backend and project root directory are in sys.path
 _backend_dir = str(Path(__file__).resolve().parent)
+_project_root = str(Path(__file__).resolve().parent.parent)
 if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
 
 from contextlib import asynccontextmanager
 from typing import List, Optional, Literal
@@ -242,6 +245,9 @@ from backend.chain.fixtures import (
 )
 
 
+from backend.eval.fuzzer import run_mutation_fuzz_campaign, FuzzCampaignReport
+
+
 class Web3RunRequest(BaseModel):
     scenario_id: str
     run_mode: Literal["BASELINE", "PROTECTED"] = "PROTECTED"
@@ -262,11 +268,18 @@ async def list_web3_scenarios():
                 "id": s.id,
                 "name": s.name,
                 "description": s.description,
+                "attack_family": s.attack_family.value if hasattr(s.attack_family, 'value') else str(s.attack_family),
+                "attack_path": s.attack_path,
                 "category": s.category,
                 "expected_decision": s.expected_decision.value,
+                "expected_step_decisions": [d.value for d in s.expected_step_decisions],
                 "expected_invariants": s.expected_invariants,
                 "expected_hold_reason": s.expected_hold_reason,
                 "divergence_step": s.divergence_step,
+                "expected_final_spend": s.expected_final_spend,
+                "expected_authorized_broadcast_count": s.expected_authorized_broadcast_count,
+                "side_effect_expected": s.side_effect_expected,
+                "why_it_matters": s.why_it_matters,
                 "intent": s.intent.model_dump(),
                 "proposal_count": len(s.proposals),
                 "proposals": [p.model_dump() for p in s.proposals],
@@ -325,24 +338,39 @@ def run_web3_counterfactual_route(request: Web3CounterfactualRequest):
 
 class Web3EvaluateRequest(BaseModel):
     substrate: Literal["LOCAL", "TESTNET"] = "LOCAL"
+    include_fuzz: bool = False
 
 
 @app.post("/api/v2/evaluate")
 def evaluate_web3_suite_post(request: Optional[Web3EvaluateRequest] = None):
     """
-    Executes the 12-scenario adversarial benchmark suite via POST and returns metrics report (EVAL-02).
+    Executes the 15-scenario adversarial benchmark suite via POST and returns metrics report across 5 families.
     """
     substrate = request.substrate if request else "LOCAL"
-    report = evaluate_all_web3_scenarios(substrate=substrate)
+    include_fuzz = request.include_fuzz if request else False
+    report = evaluate_all_web3_scenarios(substrate=substrate, include_fuzz=include_fuzz)
     return report.model_dump()
 
 
 @app.get("/api/v2/evaluate")
-def evaluate_web3_suite_get(substrate: Literal["LOCAL", "TESTNET"] = "LOCAL"):
+def evaluate_web3_suite_get(
+    substrate: Literal["LOCAL", "TESTNET"] = "LOCAL",
+    include_fuzz: bool = False,
+):
     """
-    Executes the 12-scenario adversarial benchmark suite via GET and returns metrics report (EVAL-02).
+    Executes the 15-scenario adversarial benchmark suite via GET and returns metrics report across 5 families.
     """
-    report = evaluate_all_web3_scenarios(substrate=substrate)
+    report = evaluate_all_web3_scenarios(substrate=substrate, include_fuzz=include_fuzz)
+    return report.model_dump()
+
+
+@app.get("/api/v2/fuzz")
+@app.post("/api/v2/fuzz")
+def run_w16_fuzz_campaign(limit: Optional[int] = 100):
+    """
+    Executes the W16 Mutation-Fuzz Campaign and returns the security classification invariant report.
+    """
+    report = run_mutation_fuzz_campaign(limit=limit)
     return report.model_dump()
 
 
@@ -351,18 +379,19 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 _frontend_dist = Path(_backend_dir).parent / "frontend" / "dist"
+_assets_dir = _frontend_dist / "assets"
 
-if _frontend_dist.exists():
-    _assets_dir = _frontend_dist / "assets"
-    if _assets_dir.exists():
-        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
+if _assets_dir.exists():
+    app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
 
-    @app.get("/{full_path:path}", include_in_schema=False)
-    async def serve_spa_app(full_path: str):
-        # Never swallow API routes with 404s
-        if full_path.startswith("api"):
-            raise HTTPException(status_code=404, detail="API route not found")
 
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_spa_app(full_path: str):
+    # Never swallow API routes with 404s
+    if full_path.startswith("api"):
+        raise HTTPException(status_code=404, detail="API route not found")
+
+    if _frontend_dist.exists():
         target_file = _frontend_dist / full_path
         if full_path and target_file.is_file():
             return FileResponse(target_file)
@@ -371,5 +400,8 @@ if _frontend_dist.exists():
         if index_file.is_file():
             return FileResponse(index_file)
 
-        raise HTTPException(status_code=404, detail="Frontend bundle not found")
+    raise HTTPException(
+        status_code=404,
+        detail="Frontend bundle not found. Please run 'npm --prefix frontend run build' first.",
+    )
 
